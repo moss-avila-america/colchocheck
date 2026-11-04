@@ -1,0 +1,49 @@
+name: Compilar APK ColchoCheck (Gratis en la Nube)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build_android_apk:
+    name: Generar Instalador APK Android
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Descargar código del repositorio
+        uses: actions/checkout@v4
+
+      - name: 2. Configurar Java 17 para Android SDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: 3. Instalar Flutter SDK estable
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: 4. Respaldar nuestro código y crear estructura Android base
+        run: |
+          cp lib/main.dart /tmp/main_backup.dart
+          cp pubspec.yaml /tmp/pubspec_backup.yaml
+          flutter create . --project-name colchocheck --org com.supercolchones.colchocheck
+          cp /tmp/main_backup.dart lib/main.dart
+          cp /tmp/pubspec_backup.yaml pubspec.yaml
+          flutter pub get
+
+      - name: 5. Inyectar permisos de Cámara, GPS e Internet en AndroidManifest.xml
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          sed -i 's/<application/<uses-permission android:name="android.permission.CAMERA"\/>\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"\/>\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"\/>\n    <uses-permission android:name="android.permission.INTERNET"\/>\n    <application/' "$MANIFEST"
+
+      - name: 6. Compilar APK de Producción (Release)
+        run: flutter build apk --release
+
+      - name: 7. Publicar archivo ColchoCheck.apk listo para descargar
+        uses: actions/upload-artifact@v4
+        with:
+          name: ColchoCheck-Instalador-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
