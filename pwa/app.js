@@ -186,7 +186,7 @@ function renderMasterDirectory(){
  const rows=data.branches.slice().sort((a,b)=>Number(a.code)-Number(b.code));
  root.innerHTML='<p class="muted">'+rows.length+' puntos comerciales · '+rows.filter(b=>b.supervisor_name).length+' con responsable identificado · '+rows.filter(b=>b.channel!=='tienda').length+' especiales</p>'+
  '<div style="max-height:360px;overflow:auto"><table style="width:100%;font-size:13px"><thead><tr><th>Tienda</th><th>Supervisor</th><th>Meta / avance</th></tr></thead><tbody>'+
- rows.map(b=>{const sales=data.sales.filter(x=>x.branch_code===b.code).sort((a,b)=>b.period.localeCompare(a.period))[0];return '<tr><td>#'+esc(b.code)+' '+esc(b.name)+'</td><td>'+esc(b.supervisor_name||'Por asignar')+'</td><td>'+esc(sales?String(sales.actual_pieces)+' / '+String(sales.target_pieces):'Sin datos')+'</td></tr>'}).join('')+'</tbody></table></div>';
+ rows.map(b=>{const sales=data.sales.filter(x=>x.branch_code===b.code).sort((a,b)=>b.period.localeCompare(a.period))[0];return '<tr><td>#'+esc(b.code)+' '+esc(b.name)+'</td><td>'+esc(b.supervisor_name||'Sin asignación')+(b.channel!=='tienda'?' · '+esc(b.channel):'')+'</td><td>'+esc(sales?String(sales.actual_pieces)+' / '+String(sales.target_pieces):'Sin datos')+'</td></tr>'}).join('')+'</tbody></table></div>';
 }
 function masterHeader(s){return String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'')}
 function masterNum(v){if(v===null||v===undefined||v==='')return null;const n=Number(String(v).replace(/[$,\s]/g,''));return Number.isFinite(n)&&n>=0?n:null}
