@@ -217,8 +217,8 @@ async function previewMasterExcel(){
   const target=masterNum(r[2]),amount=masterNum(r[3]);
   const special=!known.has(c)&&!grouped.has(c);
   put(c,{name:String(r[1]||'').trim(),...(target!==null?{target_pieces:Math.round(target)}:{}),
-   ...(amount!==null?{target_amount:amount}:{}),...(special?{channel:'especial',active:false,supervisor_name:null,supervisor_user_code:null}:{})});
-  if(amount!==null&&amount>1000000)problems.push('Revisar importe atípico tienda '+c+': $'+amount.toLocaleString('es-MX'));
+   ...(amount!==null&&amount<=1000000?{target_amount:amount}:{}),...(special?{channel:'especial',active:false,supervisor_name:null,supervisor_user_code:null}:{})});
+  if(amount!==null&&amount>1000000)problems.push('Importe atípico omitido en tienda '+c+': $'+amount.toLocaleString('es-MX'));
  }
  for(const r of adv){
   const c=code(r[1]);if(!c)continue;
