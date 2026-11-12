@@ -82,6 +82,15 @@
 </div>
 <button class="primary" type="submit" id="monthlySubmit">Crear rol mensual</button>
 </form><p id="monthlyResult" class="muted" role="status"></p></div>
+<div class="panel" id="masterImportPanel"><h2>Actualizar Excel maestro · 4 pestañas</h2>
+<p class="muted">Directorio Tiendas · USER · OBJETIVOS · AVANCE MES. Se vincula por No_Tienda. La hoja USER se revisa, pero no cambia contraseñas ni crea cuentas automáticamente.</p>
+<form id="masterImportForm"><label>Archivo .xlsx<input class="field" id="masterFile" type="file" accept=".xlsx,.xls" required></label>
+<label>Mes de datos<input class="field" id="masterMonth" type="month" required></label>
+<label>Fecha de corte Sell Out<input class="field" id="masterCutoff" type="date" required></label>
+<button type="button" class="light" id="masterPreviewBtn">Validar y previsualizar</button>
+<button type="submit" class="primary" id="masterApplyBtn" disabled>Confirmar actualización en Supabase</button></form>
+<div id="masterPreview" class="muted" role="status"></div></div>
+<div class="panel"><h2>Directorio y responsables</h2><p class="muted">Supervisores asignados según el último directorio disponible. Las cuentas reales se vincularán cuando se creen en Administración.</p><div id="masterDirectory"></div></div>
 <div class="panel" id="salesPanel"><h2>Actualizar meta y avance</h2>
 <form id="salesForm"><label>Sucursal<select class="field" id="salesBranch" required></select></label>
 <label>Mes<input class="field" type="month" id="salesMonth" required></label>
