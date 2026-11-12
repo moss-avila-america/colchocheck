@@ -57,7 +57,7 @@ async function initUser(authUser){
  document.querySelectorAll('.admins').forEach(e=>e.classList.toggle('hidden',!isAdmin()));
  document.querySelectorAll('.downloaders').forEach(e=>e.classList.toggle('hidden',!canExport()));
  $('salesPanel').classList.toggle('hidden',!['admin','ejecutivo'].includes(profile.role));
- $('planDate').value=isoDay();$('salesMonth').value=month();view('home');
+ $('planDate').value=isoDay();$('salesMonth').value=month();$('monthlyMonth').value=month();view('home');
  await refresh();
  clearInterval(poll);poll=setInterval(()=>{if(me)refresh(true)},30000);
  if(channel)await sb.removeChannel(channel);
@@ -165,6 +165,8 @@ function fillOptions(){
  const branches=data.branches.filter(b=>b.active);
  $('planUser').innerHTML=options(users,'id',x=>x.full_name+' ('+x.user_code+')');
  $('planBranch').innerHTML=options(branches,'code',x=>'#'+x.code+' '+x.name);
+ $('monthlyUser').innerHTML=options(users.filter(p=>p.role==='promotor'),'id',x=>x.full_name+' ('+x.user_code+')');
+ $('monthlyBranch').innerHTML=options(branches,'code',x=>'#'+x.code+' '+x.name);
  $('salesBranch').innerHTML=options(branches,'code',x=>'#'+x.code+' '+x.name);
 }
 function renderUsers(){
@@ -279,6 +281,28 @@ document.addEventListener('submit',async e=>{
   await rpc('cc_close_report',{p_visit:$('reportVisit').value,p_afluencia:$('afluencia').value,p_ingresos:Number($('ingresos').value),p_venta_america:$('venta_america').value,p_venta_competencia:$('venta_competencia').value,p_presupuesto_america:$('presupuesto_america').value,p_presupuesto_competencia:$('presupuesto_competencia').value});closeModal();await refresh();mm('Reporte comercial guardado');return;
  }
  if(e.target.id==='superCloseForm'){await rpc('cc_supervisor_close',{p_day:isoDay(),p_comment:$('superComment').value});mm('Cierre de jornada guardado');await refresh();return}
+ if(e.target.id==='monthlyPlanForm'){
+  if(!isManager())throw Error('Perfil no autorizado');
+  const user=$('monthlyUser').value,branch=$('monthlyBranch').value,period=$('monthlyMonth').value;
+  const days=new Set([...document.querySelectorAll('input[name="monthlyDay"]:checked')].map(x=>Number(x.value)));
+  if(!user||!branch||!/^\\d{4}-\\d{2}$/.test(period)||!days.size)throw Error('Selecciona promotor, tienda, mes y al menos un día');
+  const target=data.profiles.find(p=>p.id===user);
+  if(!target||target.role!=='promotor'||(isSupervisor()&&target.supervisor_id!==me.id))throw Error('Promotor fuera de tu equipo');
+  const [year,mon]=period.split('-').map(Number),count=new Date(year,mon,0).getDate(),dates=[];
+  for(let day=1;day<=count;day++){const date=new Date(Date.UTC(year,mon-1,day));if(days.has(date.getUTCDay()))dates.push(period+'-'+String(day).padStart(2,'0'))}
+  const existing=new Set(data.assignments.filter(a=>a.user_id===user&&a.branch_code===branch&&a.status==='scheduled').map(a=>a.day));
+  const pending=dates.filter(d=>!existing.has(d));
+  if(!pending.length)throw Error('Todas las fechas seleccionadas ya están programadas');
+  if(!confirm('¿Programar '+pending.length+' visitas de '+target.full_name+' en '+branch+'?'))return;
+  const button=$('monthlySubmit');button.disabled=true;let ok=0,failed=[];
+  try{
+   for(const day of pending){try{await rpc('cc_plan',{p_user:user,p_branch:branch,p_day:day});ok++}catch(err){failed.push(day+': '+(err.message||err))}}
+   $('monthlyResult').textContent=ok+' visitas creadas; '+failed.length+' sin registrar.'+(failed.length?' Revisa consola para detalles.':'');
+   if(failed.length)console.warn('Fechas sin programar',failed);
+   await refresh();mm('Rol mensual: '+ok+' visitas registradas'+(failed.length?' (parcial)':''));
+  }finally{button.disabled=false}
+  return;
+ }
  if(e.target.id==='planForm'){await rpc('cc_plan',{p_user:$('planUser').value,p_branch:$('planBranch').value,p_day:$('planDate').value});mm('Visita programada');await refresh();return}
  if(e.target.id==='salesForm'){await rpc('cc_update_sales',{p_branch:$('salesBranch').value,p_period:$('salesMonth').value+'-01',p_target:Number($('salesTarget').value),p_actual:Number($('salesActual').value)});mm('Meta y avance actualizados');await refresh();return}
  if(e.target.id==='branchForm'){
