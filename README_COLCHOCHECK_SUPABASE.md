@@ -1,16 +1,40 @@
 # ColchoCheck App · PWA conectada a Supabase
 
-## Estado
-Este código está **preparado para conexión**, pero aún **NO está operativo en la nube**: la organización de Supabase no tiene proyecto creado. Ninguna tabla ni función fue desplegada a Supabase. No ingresar empleados ni subir fotografías reales hasta completar y verificar los pasos de este documento.
+## Estado actual: backend inicial activo (beta, NO producción)
+- Organización: **ColchoCheck** (plan Free; creación del proyecto confirmada a USD $0/mes).
+- Proyecto: **ColchoCheck-GNC** (`sphvdggfbbsdfvaaelnx`), región `us-west-1`, activo.
+- Esquema SQL inicial y endurecimiento de cuentas bloqueadas aplicados.
+- 76 sucursales del index de referencia cargadas en la base (70 activas; 6 cerradas). **No se importaron usuarios ni contraseñas anteriores.**
+- Storage privado `cc-evidence` y Edge Function `cc-admin-users` activos.
+- `pwa/config.js` ya contiene la URL y la **clave publicable** del proyecto. Ningún secreto de servidor está en GitHub.
+- Cuenta de administrador: **pendiente de creación manual**, por lo que todavía no es posible iniciar sesión.
+- PWA guardada en rama de revisión y PR en borrador; **no se ha fusionado a main ni publicado como sitio oficial**.
+
+## Activación de tu cuenta administrador (acción del propietario)
+1. Abrir https://supabase.com/dashboard/project/sphvdggfbbsdfvaaelnx/auth/users
+2. `Add user` / `Create new user`, en modo creación directa con contraseña, NO invitación por correo.
+3. Correo técnico: `admin1.moss@users.colchocheck.example.com`.
+4. Elegir una contraseña segura **solo en el panel de Supabase**, marcar el usuario como confirmado si el panel lo permite. No compartir la contraseña por chat ni guardarla en GitHub.
+5. Informar en esta conversación que el usuario se creó. Entonces se podrá añadir la fila correspondiente de perfil `ADMIN1.MOSS` mediante SQL, sin conocer la contraseña.
+6. Probar el acceso en el entorno HTTPS de la PWA. Las nuevas cuentas se crearán después desde el panel administrador y las contraseñas antiguas no se reciclarán.
+
+## Para publicar posteriormente
+- Aprobar y fusionar el PR de la rama `feature/supabase-pwa-beta-06`.
+- Activar GitHub Pages usando **GitHub Actions** en la configuración del repositorio y ejecutar el workflow de despliegue.
+- Verificar la configuración de CORS y los permisos de cámara/GPS en Android/iOS.
+- Ejecutar pruebas de autenticación, asignaciones, selfies, cierres y exportación antes de usar datos reales.
+
 
 ## Archivos
 - pwa/index.html: carátula y navegación responsive.
 - pwa/app.js: inicio de sesión, roles, agenda, cámara, GPS, reportes, fotos y CSV.
 - pwa/config.example.js: plantilla sin secretos (crear pwa/config.js).
 - supabase/migrations/20261111_colchocheck_initial.sql: tablas, seguridad por perfil, RPC, Storage privado.
+- supabase/migrations/20261112_account_security_hardening.sql: bloqueos efectivos en sesiones antiguas.
+- supabase/migrations/20261112_seed_sucursales.sql: catálogo de 76 sucursales.
 - supabase/functions/cc-admin-users/index.ts: crear/bloquear cuentas y restablecer contraseñas (server-only).
 
-## Antes de poner en línea
+## Guía de primera instalación (ya realizado en este proyecto; NO volver a ejecutar migraciones)
 1. En Supabase, organización **ColchoCheck**, crear un proyecto con plan gratuito si está disponible. Confirmar costo antes de crear si no es $0.
 2. Revisar el SQL en Supabase SQL Editor y ejecutarlo en un **proyecto vacío**, una sola vez.
 3. Crear primer usuario de administración desde **Supabase > Authentication > Users > Add User**, con el correo técnico exacto \`admin1.moss@users.colchocheck.example.com\`, una contraseña robusta y correo confirmado. Este correo es un alias para conservar el ID previo; Supabase Auth lo utiliza como identidad técnica. Como no es una casilla real, el restablecimiento por correo no funcionará; debe mantenerse una vía segura de recuperación en el panel.
