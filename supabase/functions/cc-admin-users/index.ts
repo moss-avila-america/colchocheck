@@ -9,8 +9,10 @@ const pub = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const secret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const suffix = "@users.colchocheck.example.com";
 const roles = new Set(["promotor","supervisor","ejecutivo","gerencia","direccion"]);
-const json = (body: unknown, status=200)=>new Response(JSON.stringify(body),{status,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
+const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, apikey, content-type, x-client-info","Access-Control-Allow-Methods":"POST, OPTIONS"};
+const json = (body: unknown, status=200)=>new Response(JSON.stringify(body),{status,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store",...cors}});
 serve(async(req:Request)=>{
+  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
   if(req.method!=="POST")return json({error:"Método no permitido"},405);
   const auth=req.headers.get("Authorization")||"";
   if(!auth.startsWith("Bearer ")||!url||!pub||!secret)return json({error:"Autenticación no disponible"},401);
@@ -65,7 +67,6 @@ serve(async(req:Request)=>{
       const active=body.active===true;
       const {error:upErr}=await admin.from("cc_profiles").update({active}).eq("id",id);
       if(upErr)return json({error:upErr.message},400);
-      if(!active)await admin.auth.admin.signOut(id,"global").catch(()=>{});
       await admin.from("cc_audit").insert({actor_id:user.id,action:active?"USER_ENABLED":"USER_BLOCKED",target:id});
       return json({ok:true});
     }
