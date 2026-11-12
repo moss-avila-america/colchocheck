@@ -31,7 +31,7 @@ jobs:
           const fs=require('fs');
           const url=process.env.PUBLIC_SUPABASE_URL || '';
           const publishableKey=process.env.PUBLIC_SUPABASE_KEY || '';
-          fs.writeFileSync('pwa/config.js','window.CC_CONFIG = '+JSON.stringify({url,publishableKey})+';\n');
+          if (url && publishableKey) fs.writeFileSync('pwa/config.js','window.CC_CONFIG = '+JSON.stringify({url,publishableKey})+';\n');
           NODE
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
