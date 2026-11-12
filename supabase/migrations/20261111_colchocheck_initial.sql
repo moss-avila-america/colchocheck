@@ -186,7 +186,7 @@ end $$;
 
 create or replace function public.cc_evidence_ok(p_path text) returns boolean
 language sql stable security definer set search_path=public,storage
-as $
+as $$
  select p_path like auth.uid()::text || '/%' and exists(
   select 1 from storage.objects o
   where o.bucket_id='cc-evidence' and o.name=p_path
@@ -195,7 +195,7 @@ as $
       select 1 from public.cc_visits v where v.in_photo=p_path or v.out_photo=p_path
     )
  )
-$;
+$$;
 
 create or replace function public.cc_checkin(p_assignment uuid,p_photo text,p_lat double precision,p_lng double precision,p_accuracy double precision)
 returns uuid language plpgsql security definer set search_path=public as $$
