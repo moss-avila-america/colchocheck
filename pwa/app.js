@@ -87,7 +87,7 @@ function renderHome(){
   const live=data.visits.filter(v=>v.status==='active'), done=data.visits.filter(v=>v.status==='complete'), inc=data.assignments.filter(v=>v.status==='scheduled');
   header='<div class="grid"><div class="panel"><h3>Visitas activas</h3><h1>'+live.length+'</h1></div><div class="panel"><h3>Visitas completadas</h3><h1>'+done.length+'</h1></div><div class="panel"><h3>Programaciones</h3><h1>'+inc.length+'</h1></div></div>'+
     '<div class="panel"><h2>Monitoreo general</h2>'+tableVisits(data.visits.slice().sort(byDate).slice(0,30))+'<p class="muted"><small>Actualización automática cada 30 segundos y avisos de cambios en vivo.</small></p></div>';
-  if(profile.role!=='admin')return header;
+  return header;
  }
  if(profile.role==='supervisor'){
   const monitored=data.visits.filter(v=>person(v.user_id)?.supervisor_id===me.id);
@@ -121,7 +121,7 @@ function renderHome(){
 }
 function tableVisits(vs){
  if(!vs.length)return '<p class="muted">Todavía no hay registros.</p>';
- return '<div class="tablewrap"><table><thead><tr><th>Colaborador</th><th>Tienda</th><th>Entrada</th><th>Salida</th><th>Estancia</th><th>Estado</th><th>Foto</th></tr></thead><tbody>'+vs.map(v=>'<tr><td>'+textId(v.user_id)+'</td><td>'+branchName(v.branch_code)+'</td><td>'+fmt(v.in_at)+'</td><td>'+fmt(v.out_at)+'</td><td>'+hm(duration(v.in_at,v.out_at))+'</td><td>'+badge(v.status)+'</td><td><button class="light" data-proof="'+esc(v.in_photo)+'">Entrada</button> '+(v.out_photo?'<button class="light" data-proof="'+esc(v.out_photo)+'">Salida</button>':'')+'</td></tr>').join('')+'</tbody></table></div>';
+ return '<div class="tablewrap"><table><thead><tr><th>Colaborador</th><th>Tienda</th><th>Entrada</th><th>Salida</th><th>Estancia</th><th>Estado</th><th>Foto</th></tr></thead><tbody>'+vs.map(v=>'<tr><td>'+textId(v.user_id)+'</td><td>'+branchName(v.branch_code)+'</td><td>'+fmt(v.in_at)+'</td><td>'+fmt(v.out_at)+'</td><td>'+(v.status==='admin_closed'&&!v.out_at?'—':hm(duration(v.in_at,v.out_at)))+'</td><td>'+badge(v.status)+'</td><td><button class="light" data-proof="'+esc(v.in_photo)+'">Entrada</button> '+(v.out_photo?'<button class="light" data-proof="'+esc(v.out_photo)+'">Salida</button>':'')+'</td></tr>').join('')+'</tbody></table></div>';
 }
 function renderAgenda(){
  let list=data.assignments.filter(a=>a.user_id===me.id).sort((a,b)=>b.day.localeCompare(a.day));
