@@ -256,7 +256,7 @@ function renderUsers(){
  $('newUserSupervisor').innerHTML='<option value="">Ninguno</option>'+sopts(data.profiles.filter(p=>p.role==='supervisor'),p=>'<option value="'+esc(p.id)+'">'+esc(p.full_name)+'</option>');
  const pending=data.user_imports.filter(p=>!p.activated);
  $('usersList').innerHTML='<h3>Personal importado desde Excel (sin contraseñas)</h3><p class="muted">'+data.user_imports.length+' usuarios en padrón · '+pending.length+' pendientes de alta/activación. Las contraseñas se asignan individualmente.</p>'+
- data.user_imports.map(p=>'<div class="box"><strong>'+esc(p.full_name)+'</strong><p class="muted">'+esc(p.user_code)+' · '+esc(roleName(p.role))+' · '+(p.activated?'Cuenta existente':'Pendiente de credenciales')+'</p></div>').join('')+
+ data.user_imports.map(p=>'<div class="box"><strong>'+esc(p.full_name)+'</strong><p class="muted">'+esc(p.user_code)+' · '+esc(roleName(p.role))+' · '+(p.activated?'Cuenta existente':'Pendiente de credenciales')+'</p>'+(p.activated?'':'<button class="light" data-prefilluser="'+esc(p.user_code)+'">Preparar alta manual</button>')+'</div>').join('')+
  '<h3 style="margin-top:24px">Personal registrado</h3>'+data.profiles.map(p=>'<div class="box"><div class="row between"><div><strong>'+esc(p.full_name)+'</strong><p class="muted">'+esc(p.user_code)+' · '+roleName(p.role)+' · '+(p.active?'Activo':'Bloqueado')+'</p></div><div class="row"><button class="light" data-reset="'+esc(p.id)+'">Nueva contraseña</button><button class="'+(p.active?'warn':'good')+'" data-toggleuser="'+esc(p.id)+'">'+(p.active?'Bloquear':'Activar')+'</button></div></div></div>').join('');
 }
 function reportModal(visitId){
@@ -353,6 +353,12 @@ document.addEventListener('click',async e=>{
  if(b.dataset.reset){await userAction(b.dataset.reset,'password');return}
  if(b.dataset.toggleuser){await userAction(b.dataset.toggleuser,'active');return}
  }catch(err){error(err)}
+});
+document.addEventListener('click',e=>{
+ const code=e.target.dataset?.prefilluser;if(!code)return;
+ const user=data.user_imports.find(p=>p.user_code===code);if(!user)return;
+ $('newUserId').value=user.user_code;$('newUserName').value=user.full_name;$('newUserRole').value=user.role;
+ $('newUserPass').value='';$('newUserPass').focus();mm('Datos precargados. Asigna la contraseña manualmente y confirma el alta.');
 });
 document.addEventListener('click',async e=>{if(e.target.id==='masterPreviewBtn'){try{await previewMasterExcel()}catch(err){masterDraft=null;masterUsersDraft=[];$('masterApplyBtn').disabled=true;error(err)}}});
 document.addEventListener('change',e=>{if(e.target.id==='masterFile'||e.target.id==='masterMonth'||e.target.id==='masterCutoff'){masterDraft=null;masterUsersDraft=[];$('masterApplyBtn').disabled=true;$('masterPreview').textContent='Archivo o periodo modificado. Vuelve a validar.'}});
