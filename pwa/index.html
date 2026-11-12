@@ -12,11 +12,33 @@
 </style>
 <script src="./config.js"></script>
 <script src="./icon.js"></script>
-<script type="module" src="./app.js"></script>
+<script>
+(function(){
+  let ready=false;
+  window.CC_BOOT_READY=function(){ready=true;const el=document.getElementById('startup');if(el)el.classList.add('hidden')};
+  window.CC_BOOT_ERROR=function(message){
+    const el=document.getElementById('startup');if(!el)return;
+    el.classList.remove('hidden');
+    const label=document.getElementById('startupMessage');
+    if(label)label.textContent=message||'No se pudo iniciar ColchoCheck. Comprueba tu conexión.';
+    const retry=document.getElementById('startupRetry');if(retry)retry.classList.remove('hidden');
+  };
+  window.addEventListener('error',function(e){if(!ready)window.CC_BOOT_ERROR('Error al cargar la aplicación. Comprueba tu conexión e inténtalo nuevamente.')});
+  window.addEventListener('unhandledrejection',function(e){if(!ready)window.CC_BOOT_ERROR('No se pudo restaurar la sesión. Puedes intentar de nuevo.')});
+  setTimeout(function(){if(!ready)window.CC_BOOT_ERROR('La carga está tardando demasiado. Revisa tu conexión y vuelve a intentar.')},12000);
+})();
+</script>
+<script type="module" src="./app.js?v=0.6.1"></script>
 </head>
 <body>
 <header class="top"><div class="brand"><span class="brandmark">✓</span><div>ColchoCheck <div style="font-size:10px;font-weight:600">• COLCHONES AMERICA •</div></div></div><div class="row"><small id="identity">Control de asistencia & cobertura</small><button id="logout" class="light hidden">Salir</button></div></header>
 <main class="shell">
+<div id="startup" class="panel" role="status" aria-live="polite" style="max-width:480px;margin:9vh auto;text-align:center">
+  <div class="brandmark" style="margin:0 auto 14px;background:#102238;color:white">✓</div>
+  <h2>ColchoCheck</h2>
+  <p class="muted" id="startupMessage">Restaurando tu sesión...</p>
+  <button id="startupRetry" class="primary hidden" type="button" onclick="window.location.reload()">Volver a intentar</button>
+</div>
 <div id="setup" class="panel hidden"><h2>Configuración pendiente</h2><p>Esta versión necesita un proyecto Supabase. Copia <code>config.example.js</code> como <code>config.js</code> e introduce solamente la URL y la clave publicable del proyecto. No utilices claves secretas.</p><p class="muted">No se enviará información hasta completar esta configuración.</p></div>
 <div id="login" class="login hidden">
 <div class="brandmark" style="margin:auto;width:68px;height:68px;font-size:32px;background:#102238;color:white">✓</div>

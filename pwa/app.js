@@ -31,20 +31,25 @@ const rpc=async(name,args)=>{const r=await sb.rpc(name,args);if(r.error)throw r.
 function roleName(v){return {admin:'Administrador',direccion:'Dirección',gerencia:'Gerencia',ejecutivo:'Ejecutivo',supervisor:'Supervisor',promotor:'Promotor'}[v]||v}
 function closeModal(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}photoBlob=null;photoAction=null;geolocation=null;$('modalRoot').innerHTML=''}
 function selectTabAndRefresh(tab){view(tab);refresh()}
-function loginDisplay(){ $('login').classList.remove('hidden');$('app').classList.add('hidden');$('logout').classList.add('hidden');$('identity').textContent='Control de asistencia & cobertura'}
+function loginDisplay(){ window.CC_BOOT_READY?.(); $('login').classList.remove('hidden');$('app').classList.add('hidden');$('logout').classList.add('hidden');$('identity').textContent='Control de asistencia & cobertura'}
 async function boot(){
- if(!goodConfig){$('setup').classList.remove('hidden');return}
+ if(!goodConfig){$('setup').classList.remove('hidden');window.CC_BOOT_READY?.();return}
  sb=createClient(config.url,config.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
- const {data:{session}}=await sb.auth.getSession();
+ const {data:{session},error:sessionError}=await Promise.race([
+   sb.auth.getSession(),
+   new Promise((_,reject)=>setTimeout(()=>reject(new Error('No fue posible recuperar la sesión. Comprueba tu conexión y vuelve a intentar.')),10000))
+ ]);
+ if(sessionError)throw sessionError;
  if(session)await initUser(session.user);else loginDisplay();
  sb.auth.onAuthStateChange((ev,session)=>{if(ev==='SIGNED_OUT'){me=null;profile=null;clearInterval(poll);poll=null;loginDisplay()}});
 }
 async function initUser(authUser){
  me=authUser;
  const r=await sb.from('cc_profiles').select('*').eq('id',me.id).single();
- if(r.error||!r.data?.active){await sb.auth.signOut();loginDisplay();mm('Cuenta no habilitada. Contacta al administrador.',true);return}
+ if(r.error){throw new Error('No se pudo verificar tu perfil. Revisa tu conexión e inténtalo nuevamente.')}
+ if(!r.data?.active){await sb.auth.signOut();loginDisplay();mm('Cuenta no habilitada. Contacta al administrador.',true);return}
  profile=r.data;
- $('login').classList.add('hidden');$('setup').classList.add('hidden');$('app').classList.remove('hidden');$('logout').classList.remove('hidden');
+ $('login').classList.add('hidden');$('setup').classList.add('hidden');$('app').classList.remove('hidden');$('logout').classList.remove('hidden');window.CC_BOOT_READY?.();
  $('greeting').textContent='Hola, '+profile.full_name.split(' ')[0];
  $('roleText').textContent=profile.full_name+' · '+roleName(profile.role);
  $('identity').textContent=roleName(profile.role);
@@ -274,4 +279,4 @@ document.addEventListener('submit',async e=>{
 });
 $('logout').addEventListener('click',async()=>{closeModal();await sb.auth.signOut();location.reload()});
 document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>view(b.dataset.tab)));
-boot().catch(error);
+boot().catch(e=>{console.error(e);window.CC_BOOT_ERROR?.(e?.message||'Error al iniciar la aplicación.');});
