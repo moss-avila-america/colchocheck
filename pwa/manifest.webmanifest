@@ -1,0 +1,10 @@
+{
+  "name": "ColchoCheck App",
+  "short_name": "ColchoCheck",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f6f9",
+  "theme_color": "#102238",
+  "description": "Control de asistencia & cobertura"
+}
