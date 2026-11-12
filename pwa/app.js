@@ -262,7 +262,7 @@ document.addEventListener('submit',async e=>{
  if(e.target.id==='salesForm'){await rpc('cc_update_sales',{p_branch:$('salesBranch').value,p_period:$('salesMonth').value+'-01',p_target:Number($('salesTarget').value),p_actual:Number($('salesActual').value)});mm('Meta y avance actualizados');await refresh();return}
  if(e.target.id==='branchForm'){
   if(!isAdmin())throw Error('Solo administrador');
-  const r=await sb.from('cc_branches').insert({code:$('branchCode').value.trim(),name:$('branchName').value.trim(),city:$('branchCity').value.trim()});
+  const r=await sb.from('cc_branches').insert({code:$('branchCode').value.trim(),name:$('branchName').value.trim(),city:$('branchCity').value.trim(),timezone:$('branchTz').value});
   if(r.error)throw r.error;e.target.reset();mm('Sucursal creada');await refresh();return;
  }
  if(e.target.id==='createUserForm'){
