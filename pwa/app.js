@@ -89,7 +89,7 @@ function render(){
  if(isManager())renderMasterDirectory();
 }
 function supervisorPortfolio(){
- const mine=data.branches.filter(b=>b.active&&b.supervisor_id===me.id), current=month();
+ const mine=data.branches.filter(b=>b.active&&(b.supervisor_id===me.id||(!b.supervisor_id&&b.supervisor_name&&b.supervisor_name.toLowerCase().includes(profile.full_name.split(' ')[0].toLowerCase())))), current=month();
  const owned=new Set(mine.map(b=>b.code));
  const visited=new Set(data.visits.filter(v=>v.user_id===me.id&&owned.has(v.branch_code)&&v.in_at?.slice(0,7)===current).map(v=>v.branch_code));
  const rows=mine.map(b=>({b,sale:data.sales.find(x=>x.branch_code===b.code&&x.period?.slice(0,7)===current),local:/GDL|Zapopan|Guadalajara|Tlaquepaque|Tonalá|Tlajomulco/i.test([b.city,b.region].join(' ')),done:visited.has(b.code)}));
@@ -188,8 +188,8 @@ function renderMasterDirectory(){
  '<div style="max-height:360px;overflow:auto"><table style="width:100%;font-size:13px"><thead><tr><th>Tienda</th><th>Supervisor</th><th>Meta / avance</th></tr></thead><tbody>'+
  rows.map(b=>{const sales=data.sales.filter(x=>x.branch_code===b.code).sort((a,b)=>b.period.localeCompare(a.period))[0];return '<tr><td>#'+esc(b.code)+' '+esc(b.name)+'</td><td>'+esc(b.supervisor_name||'Por asignar')+'</td><td>'+esc(sales?String(sales.actual_pieces)+' / '+String(sales.target_pieces):'Sin datos')+'</td></tr>'}).join('')+'</tbody></table></div>';
 }
-function masterHeader(s){return String(s??'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'')}
-function masterNum(v){if(v===null||v===undefined||v==='')return null;const n=Number(String(v).replace(/[$,\\s]/g,''));return Number.isFinite(n)&&n>=0?n:null}
+function masterHeader(s){return String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'')}
+function masterNum(v){if(v===null||v===undefined||v==='')return null;const n=Number(String(v).replace(/[$,\s]/g,''));return Number.isFinite(n)&&n>=0?n:null}
 function masterFind(row,keys){for(const k of keys){const val=row[k];if(val!==undefined&&val!==null&&String(val).trim()!=='')return val}return null}
 async function previewMasterExcel(){
  if(!['admin','ejecutivo'].includes(profile.role))throw Error('Sin autorización');
@@ -201,7 +201,7 @@ async function previewMasterExcel(){
  const missing=required.filter(n=>!lookup[n]);if(missing.length)throw Error('Faltan pestañas: '+missing.join(', '));
  const grouped=new Map(),problems=[];
  const known=new Set(data.branches.map(b=>String(b.code)));
- function codeOf(r){const raw=masterFind(r,['NOTIENDA','NUMTIENDA','NUMEROTIENDA','SUCURSAL','CODIGOTIENDA']);if(raw===null)return null;return String(raw).trim().replace(/\\.0$/,'')}
+ function codeOf(r){const raw=masterFind(r,['NOTIENDA','NUMTIENDA','NUMEROTIENDA','SUCURSAL','CODIGOTIENDA']);if(raw===null)return null;return String(raw).trim().replace(/\.0$/,'')}
  function rowsFor(key){
   const arr=window.XLSX.utils.sheet_to_json(wb.Sheets[lookup[key]],{defval:null,raw:true});
   return arr.map(row=>Object.fromEntries(Object.entries(row).map(([k,v])=>[masterHeader(k),v])));
