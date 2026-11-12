@@ -3,8 +3,8 @@ const $=id=>document.getElementById(id);
 const config=window.CC_CONFIG||{};
 const goodConfig=!!(config.url&&config.publishableKey&&!config.url.includes('TU_PROYECTO'));
 const EMAIL_DOMAIN='users.colchocheck.example.com';
-let masterDraft=null;
-let sb=null, me=null, profile=null, tabs='home', data={profiles:[],branches:[],sales:[],assignments:[],visits:[],breaks:[],reports:[],closings:[],warranties:[],models:[]};
+let masterDraft=null, masterUsersDraft=[];
+let sb=null, me=null, profile=null, tabs='home', data={profiles:[],branches:[],sales:[],assignments:[],visits:[],breaks:[],reports:[],closings:[],warranties:[],models:[],user_imports:[]};
 let stream=null, photoBlob=null, photoAction=null, geolocation=null, lastPhotoAt=null, poll=null, channel=null;
 const isManager=()=>['admin','ejecutivo','supervisor'].includes(profile?.role);
 const isLeader=()=>['admin','ejecutivo','direccion','gerencia'].includes(profile?.role);
@@ -70,9 +70,9 @@ async function initUser(authUser){
 async function refresh(quiet=false){
  if(!sb||!profile)return;
  try {
- const names=['cc_profiles','cc_branches','cc_sales','cc_assignments','cc_visits','cc_breaks','cc_reports','cc_supervisor_closings','cc_warranties','cc_models'];
+ const names=['cc_profiles','cc_branches','cc_sales','cc_assignments','cc_visits','cc_breaks','cc_reports','cc_supervisor_closings','cc_warranties','cc_models','cc_user_imports'];
  const results=await Promise.all(names.map(t=>sb.from(t).select('*').limit(1500)));
- for(let i=0;i<results.length;i++){if(results[i].error)throw results[i].error;data[['profiles','branches','sales','assignments','visits','breaks','reports','closings','warranties','models'][i]]=results[i].data||[]}
+ for(let i=0;i<results.length;i++){if(results[i].error)throw results[i].error;data[['profiles','branches','sales','assignments','visits','breaks','reports','closings','warranties','models','user_imports'][i]]=results[i].data||[]}
  $('connection').textContent='En línea · '+new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
  $('connection').style.background='#e9f8f0';
  render();
@@ -183,8 +183,8 @@ function renderWarranties(){
 
 function renderMasterDirectory(){
  const root=$('masterDirectory');if(!root)return;
- const rows=data.branches.filter(b=>b.active).sort((a,b)=>Number(a.code)-Number(b.code));
- root.innerHTML='<p class="muted">'+rows.length+' sucursales activas · '+rows.filter(b=>b.supervisor_name).length+' con responsable identificado</p>'+
+ const rows=data.branches.slice().sort((a,b)=>Number(a.code)-Number(b.code));
+ root.innerHTML='<p class="muted">'+rows.length+' puntos comerciales · '+rows.filter(b=>b.supervisor_name).length+' con responsable identificado · '+rows.filter(b=>b.channel!=='tienda').length+' especiales'</p>'+
  '<div style="max-height:360px;overflow:auto"><table style="width:100%;font-size:13px"><thead><tr><th>Tienda</th><th>Supervisor</th><th>Meta / avance</th></tr></thead><tbody>'+
  rows.map(b=>{const sales=data.sales.filter(x=>x.branch_code===b.code).sort((a,b)=>b.period.localeCompare(a.period))[0];return '<tr><td>#'+esc(b.code)+' '+esc(b.name)+'</td><td>'+esc(b.supervisor_name||'Por asignar')+'</td><td>'+esc(sales?String(sales.actual_pieces)+' / '+String(sales.target_pieces):'Sin datos')+'</td></tr>'}).join('')+'</tbody></table></div>';
 }
@@ -194,54 +194,70 @@ function masterFind(row,keys){for(const k of keys){const val=row[k];if(val!==und
 async function previewMasterExcel(){
  if(!['admin','ejecutivo'].includes(profile.role))throw Error('Sin autorización');
  const file=$('masterFile').files?.[0];if(!file)throw Error('Selecciona un archivo Excel');
- if(!window.XLSX)throw Error('No se pudo cargar el lector Excel. Comprueba la conexión');
- const wb=window.XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
- const required=['DIRECTORIOTIENDAS','USER','OBJETIVOS','AVANCEMES'];
+ if(!window.XLSX)throw Error('Lector Excel no disponible');
+ const wb=window.XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:false});
  const lookup=Object.fromEntries(wb.SheetNames.map(n=>[masterHeader(n),n]));
- const missing=required.filter(n=>!lookup[n]);if(missing.length)throw Error('Faltan pestañas: '+missing.join(', '));
+ for(const n of ['DIRECTORIOTIENDAS','USER','OBJETIVOS','AVANCEMES'])if(!lookup[n])throw Error('Falta la pestaña '+n);
+ const get=n=>window.XLSX.utils.sheet_to_json(wb.Sheets[lookup[n]],{header:1,defval:null,raw:true});
+ const dir=get('DIRECTORIOTIENDAS').slice(2),us=get('USER').slice(3),obj=get('OBJETIVOS').slice(5),adv=get('AVANCEMES').slice(6);
  const grouped=new Map(),problems=[];
+ const code=v=>v===null||v===undefined||String(v).trim()===''?null:String(v).trim().replace(/\\.0$/,'');
+ const put=(c,values)=>{if(!c||!/^\\d+$/.test(c))return;grouped.set(c,{...(grouped.get(c)||{code:c}),...values})};
  const known=new Set(data.branches.map(b=>String(b.code)));
- function codeOf(r){const raw=masterFind(r,['NOTIENDA','NUMTIENDA','NUMEROTIENDA','SUCURSAL','CODIGOTIENDA']);if(raw===null)return null;return String(raw).trim().replace(/\.0$/,'')}
- function rowsFor(key){
-  const arr=window.XLSX.utils.sheet_to_json(wb.Sheets[lookup[key]],{defval:null,raw:true});
-  return arr.map(row=>Object.fromEntries(Object.entries(row).map(([k,v])=>[masterHeader(k),v])));
+ for(const r of dir){
+  const c=code(r[2]);if(!c)continue;
+  const supervisor=String(r[6]||'').trim(),supcode=String(r[7]||'').trim();
+  put(c,{name:String(r[3]||'').trim(),coverage:String(r[5]||'').trim(),
+   supervisor_name:supervisor&&!/^sin cobertura|sin asignar$/i.test(supervisor)?supervisor:null,
+   supervisor_user_code:/^SUPER[12]\\./i.test(supcode)?supcode:null,
+   status_source:String(r[1]||'').trim(),channel:'tienda'});
  }
- const sheets={};for(const key of required)sheets[key]=rowsFor(key);
- for(const [key,rows] of Object.entries(sheets)){
-  if(key==='USER')continue;
-  for(const r of rows){
-   const code=codeOf(r);if(!code)continue;
-   if(!known.has(code)){problems.push(key+': tienda '+code+' no existe');continue}
-   const out=grouped.get(code)||{code};
-   if(key==='DIRECTORIOTIENDAS'){
-    const supervisor=masterFind(r,['SUPERVISOR','NOMBRESUPERVISOR','SUPERVISORASIGNADO','RESPONSABLE']);
-    if(supervisor)out.supervisor_name=String(supervisor).trim();
-   }
-   if(key==='OBJETIVOS'){
-    const pieces=masterNum(masterFind(r,['METAPIEZAS','OBJETIVOPIEZAS','PIEZAS','META']));
-    const amount=masterNum(masterFind(r,['METAIMPORTE','OBJETIVOIMPORTE','IMPORTE','METAPESOS']));
-    if(pieces!==null)out.target_pieces=Math.round(pieces);
-    if(amount!==null)out.target_amount=amount;
-   }
-   if(key==='AVANCEMES'){
-    const pieces=masterNum(masterFind(r,['AVANCEPIEZAS','PIEZASVENDIDAS','SELL OUT','SELLOUT','AVANCE']));
-    const amount=masterNum(masterFind(r,['AVANCEIMPORTE','VENTAPESOS','IMPORTEVENDIDO','VENTAIMPORTE']));
-    if(pieces!==null)out.actual_pieces=Math.round(pieces);
-    if(amount!==null)out.actual_amount=amount;
-   }
-   grouped.set(code,out);
+ for(const r of obj){
+  const c=code(r[0]);if(!c)continue;
+  const target=masterNum(r[2]),amount=masterNum(r[3]);
+  const special=!known.has(c)&&!grouped.has(c);
+  put(c,{name:String(r[1]||'').trim(),...(target!==null?{target_pieces:Math.round(target)}:{}),
+   ...(amount!==null?{target_amount:amount}:{}),...(special?{channel:'especial',active:false,supervisor_name:null,supervisor_user_code:null}:{})});
+  if(amount!==null&&amount>1000000)problems.push('Revisar importe atípico tienda '+c+': $'+amount.toLocaleString('es-MX'));
+ }
+ for(const r of adv){
+  const c=code(r[1]);if(!c)continue;
+  const actual=masterNum(r[4]),goal=masterNum(r[3]);
+  if(actual!==null)put(c,{actual_pieces:Math.round(actual)});
+  if(goal!==null)put(c,{target_pieces:Math.round(goal)});
+ }
+ const roleOf=(user,source)=>{
+  const r=masterHeader(source),u=user.toUpperCase();
+  if(r==='ADMINISTRADOR')return 'admin';
+  if(r==='SUPERVISOR')return 'supervisor';
+  if(r==='PROMOTOR')return 'promotor';
+  if(r==='DIRECCIONEJECUTIVO'){
+   if(u.startsWith('GERENTE'))return 'gerencia';
+   if(u.startsWith('DIREC'))return 'direccion';
+   return 'ejecutivo';
   }
+  return null;
+ };
+ masterUsersDraft=[];
+ for(const r of us){
+  const user=String(r[1]||'').trim().toUpperCase(),full_name=String(r[5]||'').trim(),role=roleOf(user,r[3]);
+  if(!user)continue;
+  if(!role||!full_name){problems.push('USER inválido: '+user);continue}
+  masterUsersDraft.push({user_code:user,full_name,role,credential_code:String(r[4]||''),source_role:String(r[3]||'')});
  }
- if(!grouped.size)throw Error('No se reconocieron tiendas. Verifica encabezados No_Tienda y columnas de datos');
  masterDraft=[...grouped.values()];
- const preview=$('masterPreview');
- preview.textContent='Vista previa: '+masterDraft.length+' tiendas reconocidas; '+problems.length+' referencias no encontradas; '+sheets.USER.length+' usuarios en hoja USER (solo revisión, sin cambiar contraseñas). '+(problems.length?'Ejemplos: '+problems.slice(0,5).join('; '):'');
+ if(!masterDraft.length)throw Error('No se reconocieron tiendas');
+ const special=masterDraft.filter(r=>r.channel==='especial').length;
+ $('masterPreview').textContent='Archivo validado: '+masterDraft.length+' puntos ('+special+' especiales sin supervisor), '+masterUsersDraft.length+' usuarios sin contraseñas. '+(problems.length?'Alertas: '+problems.slice(0,5).join('; '):'');
  $('masterApplyBtn').disabled=false;
 }
 
 function renderUsers(){
  $('newUserSupervisor').innerHTML='<option value="">Ninguno</option>'+sopts(data.profiles.filter(p=>p.role==='supervisor'),p=>'<option value="'+esc(p.id)+'">'+esc(p.full_name)+'</option>');
- $('usersList').innerHTML='<h3 style="margin-top:24px">Personal registrado</h3>'+data.profiles.map(p=>'<div class="box"><div class="row between"><div><strong>'+esc(p.full_name)+'</strong><p class="muted">'+esc(p.user_code)+' · '+roleName(p.role)+' · '+(p.active?'Activo':'Bloqueado')+'</p></div><div class="row"><button class="light" data-reset="'+esc(p.id)+'">Nueva contraseña</button><button class="'+(p.active?'warn':'good')+'" data-toggleuser="'+esc(p.id)+'">'+(p.active?'Bloquear':'Activar')+'</button></div></div></div>').join('');
+ const pending=data.user_imports.filter(p=>!p.activated);
+ $('usersList').innerHTML='<h3>Personal importado desde Excel (sin contraseñas)</h3><p class="muted">'+data.user_imports.length+' usuarios en padrón · '+pending.length+' pendientes de alta/activación. Las contraseñas se asignan individualmente.</p>'+
+ data.user_imports.map(p=>'<div class="box"><strong>'+esc(p.full_name)+'</strong><p class="muted">'+esc(p.user_code)+' · '+esc(roleName(p.role))+' · '+(p.activated?'Cuenta existente':'Pendiente de credenciales')+'</p></div>').join('')+
+ '<h3 style="margin-top:24px">Personal registrado</h3>'+data.profiles.map(p=>'<div class="box"><div class="row between"><div><strong>'+esc(p.full_name)+'</strong><p class="muted">'+esc(p.user_code)+' · '+roleName(p.role)+' · '+(p.active?'Activo':'Bloqueado')+'</p></div><div class="row"><button class="light" data-reset="'+esc(p.id)+'">Nueva contraseña</button><button class="'+(p.active?'warn':'good')+'" data-toggleuser="'+esc(p.id)+'">'+(p.active?'Bloquear':'Activar')+'</button></div></div></div>').join('');
 }
 function reportModal(visitId){
  const v=data.visits.find(x=>x.id===visitId);if(!v||v.user_id!==me.id||v.status!=='awaiting_report')return;
@@ -338,8 +354,8 @@ document.addEventListener('click',async e=>{
  if(b.dataset.toggleuser){await userAction(b.dataset.toggleuser,'active');return}
  }catch(err){error(err)}
 });
-document.addEventListener('click',async e=>{if(e.target.id==='masterPreviewBtn'){try{await previewMasterExcel()}catch(err){masterDraft=null;$('masterApplyBtn').disabled=true;error(err)}}});
-document.addEventListener('change',e=>{if(e.target.id==='masterFile'||e.target.id==='masterMonth'||e.target.id==='masterCutoff'){masterDraft=null;$('masterApplyBtn').disabled=true;$('masterPreview').textContent='Archivo o periodo modificado. Vuelve a validar.'}});
+document.addEventListener('click',async e=>{if(e.target.id==='masterPreviewBtn'){try{await previewMasterExcel()}catch(err){masterDraft=null;masterUsersDraft=[];$('masterApplyBtn').disabled=true;error(err)}}});
+document.addEventListener('change',e=>{if(e.target.id==='masterFile'||e.target.id==='masterMonth'||e.target.id==='masterCutoff'){masterDraft=null;masterUsersDraft=[];$('masterApplyBtn').disabled=true;$('masterPreview').textContent='Archivo o periodo modificado. Vuelve a validar.'}});
 document.addEventListener('submit',async e=>{
  if(!e.target.id)return;
  e.preventDefault();
@@ -358,7 +374,8 @@ document.addEventListener('submit',async e=>{
   if(!['admin','ejecutivo'].includes(profile.role))throw Error('Sin autorización');
   if(!confirm('¿Aplicar '+masterDraft.length+' registros al mes '+$('masterMonth').value+'? Esta operación actualizará datos existentes.'))return;
   const result=await rpc('cc_import_master',{p_period:$('masterMonth').value+'-01',p_cutoff:$('masterCutoff').value,p_rows:masterDraft});
-  masterDraft=null;$('masterApplyBtn').disabled=true;
+  if(profile.role==='admin'&&masterUsersDraft.length)await rpc('cc_import_users',{p_rows:masterUsersDraft});
+  masterDraft=null;masterUsersDraft=[];$('masterApplyBtn').disabled=true;
   $('masterPreview').textContent='Actualización realizada: '+result.updated+' tiendas. Tiendas sin coincidencia: '+(result.missing||[]).join(', ');
   await refresh();mm('Excel maestro actualizado en Supabase');return;
  }
