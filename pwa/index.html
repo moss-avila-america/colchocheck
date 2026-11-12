@@ -53,6 +53,7 @@
 <button data-tab="agenda">Agenda</button>
 <button data-tab="history">Historial</button>
 <button data-tab="management" class="leaders">Gestión</button>
+<button data-tab="warranties" class="leaders">Garantías</button>
 <button data-tab="users" class="admins">Usuarios</button>
 </div>
 <section class="section active" id="tab-home"><div id="homeContent"></div></section>
@@ -86,6 +87,8 @@
 <label>Mes<input class="field" type="month" id="salesMonth" required></label>
 <label>Meta (piezas)<input class="field" type="number" min="0" id="salesTarget" required></label>
 <label>Avance (piezas)<input class="field" type="number" min="0" id="salesActual" required></label>
+<label>Objetivo ($ MXN, opcional)<input class="field" type="number" min="0" step="0.01" id="salesTargetAmount"></label>
+<label>Avance ($ MXN, opcional)<input class="field" type="number" min="0" step="0.01" id="salesActualAmount"></label>
 <button class="primary" type="submit">Guardar cifras</button></form></div>
 <div class="panel admins" id="branchPanel"><h2>Nueva sucursal</h2><form id="branchForm">
 <label>Número de tienda<input class="field" id="branchCode" required></label>
@@ -94,6 +97,14 @@
 <label>Zona horaria<select class="field" id="branchTz"><option value="America/Mexico_City">Centro (Jalisco, Nayarit, Colima)</option><option value="America/Mazatlan">Sinaloa (Culiacán, Mazatlán, Los Mochis)</option></select></label>
 <button class="primary" type="submit">Guardar sucursal</button></form></div>
 </div><div class="panel"><h2>Monitoreo y autorizaciones</h2><div id="manageContent"></div></div></section>
+<section class="section" id="tab-warranties"><div class="panel"><h2>Inspecciones de garantías</h2><p class="muted">Registro por folio, dictamen y seis fotografías. Las evidencias se guardan en almacenamiento privado.</p>
+<form id="warrantyForm"><label>Sucursal<select class="field" id="warrantyBranch" required></select></label>
+<label>Folio<input class="field" id="warrantyFolio" maxlength="80" required></label>
+<label>Dictamen<select class="field" id="warrantyVerdict" required><option value="revision">En revisión con planta</option><option value="procede">Procede cambio por garantía</option><option value="no_procede">No procede</option></select></label>
+<label>Observaciones<textarea class="field" id="warrantyNotes" maxlength="2000"></textarea></label>
+<label>Seis fotografías de evidencia<input class="field" type="file" id="warrantyPhotos" accept="image/*" capture="environment" multiple required></label>
+<p class="muted"><small>En algunos teléfonos la cámara permite una foto por vez. En ese caso selecciona seis imágenes desde tu galería. No se aceptan registros incompletos.</small></p>
+<button class="primary" type="submit" id="warrantySubmit">Guardar inspección</button></form></div><div class="panel"><h2>Historial de garantías</h2><div id="warrantyList"></div></div></section>
 <section class="section" id="tab-users"><div class="panel"><h2>Administración de usuarios</h2>
 <p class="muted">Solo el administrador crea y bloquea usuarios o restablece contraseñas. Las contraseñas existentes nunca son visibles.</p>
 <form id="createUserForm" class="grid"><label>ID de usuario<input class="field" id="newUserId" placeholder="PROMO3.GDL" required></label>
