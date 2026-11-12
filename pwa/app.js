@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id);
 const config=window.CC_CONFIG||{};
 const goodConfig=!!(config.url&&config.publishableKey&&!config.url.includes('TU_PROYECTO'));
 const EMAIL_DOMAIN='users.colchocheck.example.com';
-let sb=null, me=null, profile=null, tabs='home', data={profiles:[],branches:[],sales:[],assignments:[],visits:[],breaks:[],reports:[],closings:[]};
+let sb=null, me=null, profile=null, tabs='home', data={profiles:[],branches:[],sales:[],assignments:[],visits:[],breaks:[],reports:[],closings:[],warranties:[],models:[]};
 let stream=null, photoBlob=null, photoAction=null, geolocation=null, lastPhotoAt=null, poll=null, channel=null;
 const isManager=()=>['admin','ejecutivo','supervisor'].includes(profile?.role);
 const isLeader=()=>['admin','ejecutivo','direccion','gerencia'].includes(profile?.role);
@@ -56,8 +56,9 @@ async function initUser(authUser){
  document.querySelectorAll('.leaders').forEach(e=>e.classList.toggle('hidden',!isManager()));
  document.querySelectorAll('.admins').forEach(e=>e.classList.toggle('hidden',!isAdmin()));
  document.querySelectorAll('.downloaders').forEach(e=>e.classList.toggle('hidden',!canExport()));
+ document.querySelector('[data-tab="warranties"]').classList.toggle('hidden',!['admin','supervisor'].includes(profile.role));
  $('salesPanel').classList.toggle('hidden',!['admin','ejecutivo'].includes(profile.role));
- $('planDate').value=isoDay();$('salesMonth').value=month();view('home');
+ $('planDate').value=isoDay();$('salesMonth').value=month();$('monthlyMonth').value=month();view('home');
  await refresh();
  clearInterval(poll);poll=setInterval(()=>{if(me)refresh(true)},30000);
  if(channel)await sb.removeChannel(channel);
@@ -66,9 +67,9 @@ async function initUser(authUser){
 async function refresh(quiet=false){
  if(!sb||!profile)return;
  try {
- const names=['cc_profiles','cc_branches','cc_sales','cc_assignments','cc_visits','cc_breaks','cc_reports','cc_supervisor_closings'];
+ const names=['cc_profiles','cc_branches','cc_sales','cc_assignments','cc_visits','cc_breaks','cc_reports','cc_supervisor_closings','cc_warranties','cc_models'];
  const results=await Promise.all(names.map(t=>sb.from(t).select('*').limit(1500)));
- for(let i=0;i<results.length;i++){if(results[i].error)throw results[i].error;data[['profiles','branches','sales','assignments','visits','breaks','reports','closings'][i]]=results[i].data||[]}
+ for(let i=0;i<results.length;i++){if(results[i].error)throw results[i].error;data[['profiles','branches','sales','assignments','visits','breaks','reports','closings','warranties','models'][i]]=results[i].data||[]}
  $('connection').textContent='En línea · '+new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
  $('connection').style.background='#e9f8f0';
  render();
@@ -81,6 +82,22 @@ function render(){
  $('historyContent').innerHTML=renderHistory();
  if(isManager()){$('manageContent').innerHTML=renderManage();fillOptions()}
  if(isAdmin()){renderUsers()}
+ if(isManager())renderWarranties();
+}
+function supervisorPortfolio(){
+ const mine=data.branches.filter(b=>b.active&&b.supervisor_id===me.id), current=month();
+ const owned=new Set(mine.map(b=>b.code));
+ const visited=new Set(data.visits.filter(v=>v.user_id===me.id&&owned.has(v.branch_code)&&v.in_at?.slice(0,7)===current).map(v=>v.branch_code));
+ const rows=mine.map(b=>({b,sale:data.sales.find(x=>x.branch_code===b.code&&x.period?.slice(0,7)===current),local:/GDL|Zapopan|Guadalajara|Tlaquepaque|Tonalá|Tlajomulco/i.test([b.city,b.region].join(' ')),done:visited.has(b.code)}));
+ const target=rows.reduce((n,r)=>n+Number(r.sale?.target_pieces||0),0),actual=rows.reduce((n,r)=>n+Number(r.sale?.actual_pieces||0),0);
+ const daily=data.assignments.filter(a=>a.user_id===me.id&&a.day===isoDay()&&a.status!=='cancelled').length;
+ return '<div class="panel"><h2>Mi cobertura mensual · '+esc(current)+'</h2><div class="grid">'+
+ '<div class="box"><strong>'+rows.filter(r=>r.done).length+' / '+rows.length+'</strong><p class="muted">Visitadas / asignadas</p></div>'+
+ '<div class="box"><strong>'+rows.filter(r=>r.local).length+' locales · '+rows.filter(r=>!r.local).length+' foráneas</strong><p class="muted">Cartera</p></div>'+
+ '<div class="box"><strong>'+daily+' / 10</strong><p class="muted">Agenda de hoy (indicador)</p></div>'+
+ '<div class="box"><strong>'+actual+' / '+target+'</strong><p class="muted">Sell out / meta (piezas)</p></div>'+ '<div class="box"><strong>'+rows.reduce((n,r)=>n+Number(r.sale?.actual_amount||0),0).toLocaleString('es-MX',{style:'currency',currency:'MXN'})+' / '+rows.reduce((n,r)=>n+Number(r.sale?.target_amount||0),0).toLocaleString('es-MX',{style:'currency',currency:'MXN'})+'</strong><p class="muted">Avance / objetivo ($), cuando existen datos</p></div></div>'+
+ '<p class="muted"><small>Las visitas de apoyo no cuentan como cobertura propia. Las cifras comerciales se muestran solo si existen en Supabase. La clasificación local/foránea es provisional hasta importar el directorio maestro; el límite de agenda todavía no se aplica aquí.</small></p>'+
+ (rows.length?'<div class="tablewrap"><table><thead><tr><th>Sucursal</th><th>Zona</th><th>Mes</th><th>Avance piezas</th><th>Meta piezas</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+branchName(r.b.code)+'</td><td>'+(r.local?'Local GDL':'Foránea')+'</td><td>'+(r.done?'Visitada':'Pendiente')+'</td><td>'+(r.sale?.actual_pieces??'Sin carga')+'</td><td>'+(r.sale?.target_pieces??'Sin carga')+'</td></tr>').join('')+'</tbody></table></div>':'<p class="muted">No hay tiendas asignadas a tu usuario en Supabase.</p>')+'</div>';
 }
 function renderHome(){
  const today=isoDay(), myA=data.assignments.filter(a=>a.user_id===me.id&&a.day===today&&a.status==='scheduled');
@@ -96,6 +113,7 @@ function renderHome(){
  }
  if(profile.role==='supervisor'){
   const monitored=data.visits.filter(v=>person(v.user_id)?.supervisor_id===me.id);
+  header+=supervisorPortfolio();
   header+='<div class="panel"><h2>Promotores de mi equipo</h2>'+tableVisits(monitored.sort(byDate).slice(0,25))+'</div>';
  }
  if(profile.role==='promotor'){
@@ -149,7 +167,14 @@ function fillOptions(){
  const branches=data.branches.filter(b=>b.active);
  $('planUser').innerHTML=options(users,'id',x=>x.full_name+' ('+x.user_code+')');
  $('planBranch').innerHTML=options(branches,'code',x=>'#'+x.code+' '+x.name);
+ $('monthlyUser').innerHTML=options(users.filter(p=>p.role==='promotor'),'id',x=>x.full_name+' ('+x.user_code+')');
+ $('monthlyBranch').innerHTML=options(branches,'code',x=>'#'+x.code+' '+x.name);
  $('salesBranch').innerHTML=options(branches,'code',x=>'#'+x.code+' '+x.name);
+}
+function renderWarranties(){
+ const branches=data.branches.filter(b=>b.active);
+ $('warrantyBranch').innerHTML=options(branches,'code',x=>'#'+x.code+' '+x.name);
+ $('warrantyList').innerHTML=data.warranties.length?data.warranties.slice().sort((a,b)=>b.created_at.localeCompare(a.created_at)).map(w=>'<div class="box"><strong>'+esc(w.folio)+'</strong><p>'+branchName(w.branch_code)+' · '+esc(w.inspection_day)+' · '+esc(w.verdict)+'</p><small>'+esc(w.notes)+'</small></div>').join(''):'<p class="muted">Sin inspecciones registradas.</p>';
 }
 function renderUsers(){
  $('newUserSupervisor').innerHTML='<option value="">Ninguno</option>'+sopts(data.profiles.filter(p=>p.role==='supervisor'),p=>'<option value="'+esc(p.id)+'">'+esc(p.full_name)+'</option>');
@@ -263,8 +288,48 @@ document.addEventListener('submit',async e=>{
   await rpc('cc_close_report',{p_visit:$('reportVisit').value,p_afluencia:$('afluencia').value,p_ingresos:Number($('ingresos').value),p_venta_america:$('venta_america').value,p_venta_competencia:$('venta_competencia').value,p_presupuesto_america:$('presupuesto_america').value,p_presupuesto_competencia:$('presupuesto_competencia').value});closeModal();await refresh();mm('Reporte comercial guardado');return;
  }
  if(e.target.id==='superCloseForm'){await rpc('cc_supervisor_close',{p_day:isoDay(),p_comment:$('superComment').value});mm('Cierre de jornada guardado');await refresh();return}
+ if(e.target.id==='monthlyPlanForm'){
+  if(!isManager())throw Error('Perfil no autorizado');
+  const user=$('monthlyUser').value,branch=$('monthlyBranch').value,period=$('monthlyMonth').value;
+  const days=new Set([...document.querySelectorAll('input[name="monthlyDay"]:checked')].map(x=>Number(x.value)));
+  if(!user||!branch||!/^\\d{4}-\\d{2}$/.test(period)||!days.size)throw Error('Selecciona promotor, tienda, mes y al menos un día');
+  const target=data.profiles.find(p=>p.id===user);
+  if(!target||target.role!=='promotor'||(isSupervisor()&&target.supervisor_id!==me.id))throw Error('Promotor fuera de tu equipo');
+  const [year,mon]=period.split('-').map(Number),count=new Date(year,mon,0).getDate(),dates=[];
+  for(let day=1;day<=count;day++){const date=new Date(Date.UTC(year,mon-1,day));if(days.has(date.getUTCDay()))dates.push(period+'-'+String(day).padStart(2,'0'))}
+  const existing=new Set(data.assignments.filter(a=>a.user_id===user&&a.branch_code===branch&&a.status==='scheduled').map(a=>a.day));
+  const pending=dates.filter(d=>!existing.has(d));
+  if(!pending.length)throw Error('Todas las fechas seleccionadas ya están programadas');
+  if(!confirm('¿Programar '+pending.length+' visitas de '+target.full_name+' en '+branch+'?'))return;
+  const button=$('monthlySubmit');button.disabled=true;let ok=0,failed=[];
+  try{
+   for(const day of pending){try{await rpc('cc_plan',{p_user:user,p_branch:branch,p_day:day});ok++}catch(err){failed.push(day+': '+(err.message||err))}}
+   $('monthlyResult').textContent=ok+' visitas creadas; '+failed.length+' sin registrar.'+(failed.length?' Revisa consola para detalles.':'');
+   if(failed.length)console.warn('Fechas sin programar',failed);
+   await refresh();mm('Rol mensual: '+ok+' visitas registradas'+(failed.length?' (parcial)':''));
+  }finally{button.disabled=false}
+  return;
+ }
  if(e.target.id==='planForm'){await rpc('cc_plan',{p_user:$('planUser').value,p_branch:$('planBranch').value,p_day:$('planDate').value});mm('Visita programada');await refresh();return}
- if(e.target.id==='salesForm'){await rpc('cc_update_sales',{p_branch:$('salesBranch').value,p_period:$('salesMonth').value+'-01',p_target:Number($('salesTarget').value),p_actual:Number($('salesActual').value)});mm('Meta y avance actualizados');await refresh();return}
+ if(e.target.id==='warrantyForm'){
+  if(!['admin','supervisor'].includes(profile.role))throw Error('Solo supervisores y administradores registran garantías');
+  const files=Array.from($('warrantyPhotos').files||[]);
+  if(files.length!==6||files.some(f=>!f.type.startsWith('image/')||f.size>8*1024*1024))throw Error('Selecciona exactamente seis imágenes de hasta 8 MB cada una');
+  const button=$('warrantySubmit');button.disabled=true;const uploaded=[];
+  try{
+   for(const file of files){
+    const path=me.id+'/warranties/'+uid()+'.jpg';
+    const result=await sb.storage.from('cc-evidence').upload(path,file,{contentType:file.type,upsert:false});
+    if(result.error)throw result.error;uploaded.push(path);
+   }
+   const record={user_id:me.id,branch_code:$('warrantyBranch').value,folio:$('warrantyFolio').value.trim(),verdict:$('warrantyVerdict').value,notes:$('warrantyNotes').value.trim(),photos:uploaded};
+   const result=await sb.from('cc_warranties').insert(record);
+   if(result.error)throw result.error;
+   e.target.reset();mm('Garantía registrada con seis evidencias');await refresh();
+  }finally{button.disabled=false}
+  return;
+ }
+ if(e.target.id==='salesForm'){const p=$('salesMonth').value+'-01',b=$('salesBranch').value;await rpc('cc_update_sales',{p_branch:b,p_period:p,p_target:Number($('salesTarget').value),p_actual:Number($('salesActual').value)});if($('salesTargetAmount').value!==''||$('salesActualAmount').value!=='')await rpc('cc_update_sales_amounts',{p_branch:b,p_period:p,p_target:$('salesTargetAmount').value===''?null:Number($('salesTargetAmount').value),p_actual:$('salesActualAmount').value===''?null:Number($('salesActualAmount').value)});mm('Meta y avance actualizados');await refresh();return}
  if(e.target.id==='branchForm'){
   if(!isAdmin())throw Error('Solo administrador');
   const r=await sb.from('cc_branches').insert({code:$('branchCode').value.trim(),name:$('branchName').value.trim(),city:$('branchCity').value.trim(),timezone:$('branchTz').value});
