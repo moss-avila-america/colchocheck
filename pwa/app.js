@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id);
 const config=window.CC_CONFIG||{};
 const goodConfig=!!(config.url&&config.publishableKey&&!config.url.includes('TU_PROYECTO'));
 const EMAIL_DOMAIN='users.colchocheck.example.com';
-let sb=null, me=null, profile=null, tabs='home', data={profiles:[],branches:[],sales:[],assignments:[],visits:[],breaks:[],reports:[],closings:[]};
+let sb=null, me=null, profile=null, tabs='home', data={profiles:[],branches:[],sales:[],assignments:[],visits:[],breaks:[],reports:[],closings:[],warranties:[],models:[]};
 let stream=null, photoBlob=null, photoAction=null, geolocation=null, lastPhotoAt=null, poll=null, channel=null;
 const isManager=()=>['admin','ejecutivo','supervisor'].includes(profile?.role);
 const isLeader=()=>['admin','ejecutivo','direccion','gerencia'].includes(profile?.role);
@@ -56,6 +56,7 @@ async function initUser(authUser){
  document.querySelectorAll('.leaders').forEach(e=>e.classList.toggle('hidden',!isManager()));
  document.querySelectorAll('.admins').forEach(e=>e.classList.toggle('hidden',!isAdmin()));
  document.querySelectorAll('.downloaders').forEach(e=>e.classList.toggle('hidden',!canExport()));
+ document.querySelector('[data-tab="warranties"]').classList.toggle('hidden',!['admin','supervisor'].includes(profile.role));
  $('salesPanel').classList.toggle('hidden',!['admin','ejecutivo'].includes(profile.role));
  $('planDate').value=isoDay();$('salesMonth').value=month();$('monthlyMonth').value=month();view('home');
  await refresh();
@@ -66,9 +67,9 @@ async function initUser(authUser){
 async function refresh(quiet=false){
  if(!sb||!profile)return;
  try {
- const names=['cc_profiles','cc_branches','cc_sales','cc_assignments','cc_visits','cc_breaks','cc_reports','cc_supervisor_closings'];
+ const names=['cc_profiles','cc_branches','cc_sales','cc_assignments','cc_visits','cc_breaks','cc_reports','cc_supervisor_closings','cc_warranties','cc_models'];
  const results=await Promise.all(names.map(t=>sb.from(t).select('*').limit(1500)));
- for(let i=0;i<results.length;i++){if(results[i].error)throw results[i].error;data[['profiles','branches','sales','assignments','visits','breaks','reports','closings'][i]]=results[i].data||[]}
+ for(let i=0;i<results.length;i++){if(results[i].error)throw results[i].error;data[['profiles','branches','sales','assignments','visits','breaks','reports','closings','warranties','models'][i]]=results[i].data||[]}
  $('connection').textContent='En línea · '+new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
  $('connection').style.background='#e9f8f0';
  render();
@@ -81,6 +82,7 @@ function render(){
  $('historyContent').innerHTML=renderHistory();
  if(isManager()){$('manageContent').innerHTML=renderManage();fillOptions()}
  if(isAdmin()){renderUsers()}
+ if(isManager())renderWarranties();
 }
 function supervisorPortfolio(){
  const mine=data.branches.filter(b=>b.active&&b.supervisor_id===me.id), current=month();
@@ -168,6 +170,11 @@ function fillOptions(){
  $('monthlyUser').innerHTML=options(users.filter(p=>p.role==='promotor'),'id',x=>x.full_name+' ('+x.user_code+')');
  $('monthlyBranch').innerHTML=options(branches,'code',x=>'#'+x.code+' '+x.name);
  $('salesBranch').innerHTML=options(branches,'code',x=>'#'+x.code+' '+x.name);
+}
+function renderWarranties(){
+ const branches=data.branches.filter(b=>b.active);
+ $('warrantyBranch').innerHTML=options(branches,'code',x=>'#'+x.code+' '+x.name);
+ $('warrantyList').innerHTML=data.warranties.length?data.warranties.slice().sort((a,b)=>b.created_at.localeCompare(a.created_at)).map(w=>'<div class="box"><strong>'+esc(w.folio)+'</strong><p>'+branchName(w.branch_code)+' · '+esc(w.inspection_day)+' · '+esc(w.verdict)+'</p><small>'+esc(w.notes)+'</small></div>').join(''):'<p class="muted">Sin inspecciones registradas.</p>';
 }
 function renderUsers(){
  $('newUserSupervisor').innerHTML='<option value="">Ninguno</option>'+sopts(data.profiles.filter(p=>p.role==='supervisor'),p=>'<option value="'+esc(p.id)+'">'+esc(p.full_name)+'</option>');
@@ -304,7 +311,25 @@ document.addEventListener('submit',async e=>{
   return;
  }
  if(e.target.id==='planForm'){await rpc('cc_plan',{p_user:$('planUser').value,p_branch:$('planBranch').value,p_day:$('planDate').value});mm('Visita programada');await refresh();return}
- if(e.target.id==='salesForm'){await rpc('cc_update_sales',{p_branch:$('salesBranch').value,p_period:$('salesMonth').value+'-01',p_target:Number($('salesTarget').value),p_actual:Number($('salesActual').value)});mm('Meta y avance actualizados');await refresh();return}
+ if(e.target.id==='warrantyForm'){
+  if(!['admin','supervisor'].includes(profile.role))throw Error('Solo supervisores y administradores registran garantías');
+  const files=Array.from($('warrantyPhotos').files||[]);
+  if(files.length!==6||files.some(f=>!f.type.startsWith('image/')||f.size>8*1024*1024))throw Error('Selecciona exactamente seis imágenes de hasta 8 MB cada una');
+  const button=$('warrantySubmit');button.disabled=true;const uploaded=[];
+  try{
+   for(const file of files){
+    const path=me.id+'/warranties/'+uid()+'.jpg';
+    const result=await sb.storage.from('cc-evidence').upload(path,file,{contentType:file.type,upsert:false});
+    if(result.error)throw result.error;uploaded.push(path);
+   }
+   const record={user_id:me.id,branch_code:$('warrantyBranch').value,folio:$('warrantyFolio').value.trim(),verdict:$('warrantyVerdict').value,notes:$('warrantyNotes').value.trim(),photos:uploaded};
+   const result=await sb.from('cc_warranties').insert(record);
+   if(result.error)throw result.error;
+   e.target.reset();mm('Garantía registrada con seis evidencias');await refresh();
+  }finally{button.disabled=false}
+  return;
+ }
+ if(e.target.id==='salesForm'){const p=$('salesMonth').value+'-01',b=$('salesBranch').value;await rpc('cc_update_sales',{p_branch:b,p_period:p,p_target:Number($('salesTarget').value),p_actual:Number($('salesActual').value)});if($('salesTargetAmount').value!==''||$('salesActualAmount').value!=='')await rpc('cc_update_sales_amounts',{p_branch:b,p_period:p,p_target:$('salesTargetAmount').value===''?null:Number($('salesTargetAmount').value),p_actual:$('salesActualAmount').value===''?null:Number($('salesActualAmount').value)});mm('Meta y avance actualizados');await refresh();return}
  if(e.target.id==='branchForm'){
   if(!isAdmin())throw Error('Solo administrador');
   const r=await sb.from('cc_branches').insert({code:$('branchCode').value.trim(),name:$('branchName').value.trim(),city:$('branchCity').value.trim(),timezone:$('branchTz').value});
