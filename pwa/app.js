@@ -82,6 +82,21 @@ function render(){
  if(isManager()){$('manageContent').innerHTML=renderManage();fillOptions()}
  if(isAdmin()){renderUsers()}
 }
+function supervisorPortfolio(){
+ const mine=data.branches.filter(b=>b.active&&b.supervisor_id===me.id), current=month();
+ const owned=new Set(mine.map(b=>b.code));
+ const visited=new Set(data.visits.filter(v=>v.user_id===me.id&&owned.has(v.branch_code)&&v.in_at?.slice(0,7)===current).map(v=>v.branch_code));
+ const rows=mine.map(b=>({b,sale:data.sales.find(x=>x.branch_code===b.code&&x.period?.slice(0,7)===current),local:/GDL|Zapopan|Guadalajara|Tlaquepaque|Tonalá|Tlajomulco/i.test([b.city,b.region].join(' ')),done:visited.has(b.code)}));
+ const target=rows.reduce((n,r)=>n+Number(r.sale?.target_pieces||0),0),actual=rows.reduce((n,r)=>n+Number(r.sale?.actual_pieces||0),0);
+ const daily=data.assignments.filter(a=>a.user_id===me.id&&a.day===isoDay()&&a.status!=='cancelled').length;
+ return '<div class="panel"><h2>Mi cobertura mensual · '+esc(current)+'</h2><div class="grid">'+
+ '<div class="box"><strong>'+rows.filter(r=>r.done).length+' / '+rows.length+'</strong><p class="muted">Visitadas / asignadas</p></div>'+
+ '<div class="box"><strong>'+rows.filter(r=>r.local).length+' locales · '+rows.filter(r=>!r.local).length+' foráneas</strong><p class="muted">Cartera</p></div>'+
+ '<div class="box"><strong>'+daily+' / 10</strong><p class="muted">Agenda de hoy (indicador)</p></div>'+
+ '<div class="box"><strong>'+actual+' / '+target+'</strong><p class="muted">Sell out / meta (piezas)</p></div></div>'+
+ '<p class="muted"><small>Las visitas de apoyo no cuentan como cobertura propia. Las cifras comerciales se muestran solo si existen en Supabase. La clasificación local/foránea es provisional hasta importar el directorio maestro; el límite de agenda todavía no se aplica aquí.</small></p>'+
+ (rows.length?'<div class="tablewrap"><table><thead><tr><th>Sucursal</th><th>Zona</th><th>Mes</th><th>Avance piezas</th><th>Meta piezas</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+branchName(r.b.code)+'</td><td>'+(r.local?'Local GDL':'Foránea')+'</td><td>'+(r.done?'Visitada':'Pendiente')+'</td><td>'+(r.sale?.actual_pieces??'Sin carga')+'</td><td>'+(r.sale?.target_pieces??'Sin carga')+'</td></tr>').join('')+'</tbody></table></div>':'<p class="muted">No hay tiendas asignadas a tu usuario en Supabase.</p>')+'</div>';
+}
 function renderHome(){
  const today=isoDay(), myA=data.assignments.filter(a=>a.user_id===me.id&&a.day===today&&a.status==='scheduled');
  const myV=data.visits.filter(v=>v.user_id===me.id).sort(byDate);
@@ -96,6 +111,7 @@ function renderHome(){
  }
  if(profile.role==='supervisor'){
   const monitored=data.visits.filter(v=>person(v.user_id)?.supervisor_id===me.id);
+  header+=supervisorPortfolio();
   header+='<div class="panel"><h2>Promotores de mi equipo</h2>'+tableVisits(monitored.sort(byDate).slice(0,25))+'</div>';
  }
  if(profile.role==='promotor'){
