@@ -3,6 +3,7 @@ const $=id=>document.getElementById(id);
 const config=window.CC_CONFIG||{};
 const goodConfig=!!(config.url&&config.publishableKey&&!config.url.includes('TU_PROYECTO'));
 const EMAIL_DOMAIN='users.colchocheck.example.com';
+let masterDraft=null;
 let sb=null, me=null, profile=null, tabs='home', data={profiles:[],branches:[],sales:[],assignments:[],visits:[],breaks:[],reports:[],closings:[],warranties:[],models:[]};
 let stream=null, photoBlob=null, photoAction=null, geolocation=null, lastPhotoAt=null, poll=null, channel=null;
 const isManager=()=>['admin','ejecutivo','supervisor'].includes(profile?.role);
@@ -58,6 +59,8 @@ async function initUser(authUser){
  document.querySelectorAll('.downloaders').forEach(e=>e.classList.toggle('hidden',!canExport()));
  document.querySelector('[data-tab="warranties"]').classList.toggle('hidden',!['admin','supervisor'].includes(profile.role));
  $('salesPanel').classList.toggle('hidden',!['admin','ejecutivo'].includes(profile.role));
+ $('masterImportPanel').classList.toggle('hidden',!['admin','ejecutivo'].includes(profile.role));
+ $('masterMonth').value=month();$('masterCutoff').value=isoDay();
  $('planDate').value=isoDay();$('salesMonth').value=month();$('monthlyMonth').value=month();view('home');
  await refresh();
  clearInterval(poll);poll=setInterval(()=>{if(me)refresh(true)},30000);
@@ -83,6 +86,7 @@ function render(){
  if(isManager()){$('manageContent').innerHTML=renderManage();fillOptions()}
  if(isAdmin()){renderUsers()}
  if(isManager())renderWarranties();
+ if(isManager())renderMasterDirectory();
 }
 function supervisorPortfolio(){
  const mine=data.branches.filter(b=>b.active&&b.supervisor_id===me.id), current=month();
@@ -176,6 +180,65 @@ function renderWarranties(){
  $('warrantyBranch').innerHTML=options(branches,'code',x=>'#'+x.code+' '+x.name);
  $('warrantyList').innerHTML=data.warranties.length?data.warranties.slice().sort((a,b)=>b.created_at.localeCompare(a.created_at)).map(w=>'<div class="box"><strong>'+esc(w.folio)+'</strong><p>'+branchName(w.branch_code)+' · '+esc(w.inspection_day)+' · '+esc(w.verdict)+'</p><small>'+esc(w.notes)+'</small></div>').join(''):'<p class="muted">Sin inspecciones registradas.</p>';
 }
+
+function renderMasterDirectory(){
+ const root=$('masterDirectory');if(!root)return;
+ const rows=data.branches.filter(b=>b.active).sort((a,b)=>Number(a.code)-Number(b.code));
+ root.innerHTML='<p class="muted">'+rows.length+' sucursales activas · '+rows.filter(b=>b.supervisor_name).length+' con responsable identificado</p>'+
+ '<div style="max-height:360px;overflow:auto"><table style="width:100%;font-size:13px"><thead><tr><th>Tienda</th><th>Supervisor</th><th>Meta / avance</th></tr></thead><tbody>'+
+ rows.map(b=>{const sales=data.sales.filter(x=>x.branch_code===b.code).sort((a,b)=>b.period.localeCompare(a.period))[0];return '<tr><td>#'+esc(b.code)+' '+esc(b.name)+'</td><td>'+esc(b.supervisor_name||'Por asignar')+'</td><td>'+esc(sales?String(sales.actual_pieces)+' / '+String(sales.target_pieces):'Sin datos')+'</td></tr>'}).join('')+'</tbody></table></div>';
+}
+function masterHeader(s){return String(s??'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'')}
+function masterNum(v){if(v===null||v===undefined||v==='')return null;const n=Number(String(v).replace(/[$,\\s]/g,''));return Number.isFinite(n)&&n>=0?n:null}
+function masterFind(row,keys){for(const k of keys){const val=row[k];if(val!==undefined&&val!==null&&String(val).trim()!=='')return val}return null}
+async function previewMasterExcel(){
+ if(!['admin','ejecutivo'].includes(profile.role))throw Error('Sin autorización');
+ const file=$('masterFile').files?.[0];if(!file)throw Error('Selecciona un archivo Excel');
+ if(!window.XLSX)throw Error('No se pudo cargar el lector Excel. Comprueba la conexión');
+ const wb=window.XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
+ const required=['DIRECTORIOTIENDAS','USER','OBJETIVOS','AVANCEMES'];
+ const lookup=Object.fromEntries(wb.SheetNames.map(n=>[masterHeader(n),n]));
+ const missing=required.filter(n=>!lookup[n]);if(missing.length)throw Error('Faltan pestañas: '+missing.join(', '));
+ const grouped=new Map(),problems=[];
+ const known=new Set(data.branches.map(b=>String(b.code)));
+ function codeOf(r){const raw=masterFind(r,['NOTIENDA','NUMTIENDA','NUMEROTIENDA','SUCURSAL','CODIGOTIENDA']);if(raw===null)return null;return String(raw).trim().replace(/\\.0$/,'')}
+ function rowsFor(key){
+  const arr=window.XLSX.utils.sheet_to_json(wb.Sheets[lookup[key]],{defval:null,raw:true});
+  return arr.map(row=>Object.fromEntries(Object.entries(row).map(([k,v])=>[masterHeader(k),v])));
+ }
+ const sheets={};for(const key of required)sheets[key]=rowsFor(key);
+ for(const [key,rows] of Object.entries(sheets)){
+  if(key==='USER')continue;
+  for(const r of rows){
+   const code=codeOf(r);if(!code)continue;
+   if(!known.has(code)){problems.push(key+': tienda '+code+' no existe');continue}
+   const out=grouped.get(code)||{code};
+   if(key==='DIRECTORIOTIENDAS'){
+    const supervisor=masterFind(r,['SUPERVISOR','NOMBRESUPERVISOR','SUPERVISORASIGNADO','RESPONSABLE']);
+    if(supervisor)out.supervisor_name=String(supervisor).trim();
+   }
+   if(key==='OBJETIVOS'){
+    const pieces=masterNum(masterFind(r,['METAPIEZAS','OBJETIVOPIEZAS','PIEZAS','META']));
+    const amount=masterNum(masterFind(r,['METAIMPORTE','OBJETIVOIMPORTE','IMPORTE','METAPESOS']));
+    if(pieces!==null)out.target_pieces=Math.round(pieces);
+    if(amount!==null)out.target_amount=amount;
+   }
+   if(key==='AVANCEMES'){
+    const pieces=masterNum(masterFind(r,['AVANCEPIEZAS','PIEZASVENDIDAS','SELL OUT','SELLOUT','AVANCE']));
+    const amount=masterNum(masterFind(r,['AVANCEIMPORTE','VENTAPESOS','IMPORTEVENDIDO','VENTAIMPORTE']));
+    if(pieces!==null)out.actual_pieces=Math.round(pieces);
+    if(amount!==null)out.actual_amount=amount;
+   }
+   grouped.set(code,out);
+  }
+ }
+ if(!grouped.size)throw Error('No se reconocieron tiendas. Verifica encabezados No_Tienda y columnas de datos');
+ masterDraft=[...grouped.values()];
+ const preview=$('masterPreview');
+ preview.textContent='Vista previa: '+masterDraft.length+' tiendas reconocidas; '+problems.length+' referencias no encontradas; '+sheets.USER.length+' usuarios en hoja USER (solo revisión, sin cambiar contraseñas). '+(problems.length?'Ejemplos: '+problems.slice(0,5).join('; '):'');
+ $('masterApplyBtn').disabled=false;
+}
+
 function renderUsers(){
  $('newUserSupervisor').innerHTML='<option value="">Ninguno</option>'+sopts(data.profiles.filter(p=>p.role==='supervisor'),p=>'<option value="'+esc(p.id)+'">'+esc(p.full_name)+'</option>');
  $('usersList').innerHTML='<h3 style="margin-top:24px">Personal registrado</h3>'+data.profiles.map(p=>'<div class="box"><div class="row between"><div><strong>'+esc(p.full_name)+'</strong><p class="muted">'+esc(p.user_code)+' · '+roleName(p.role)+' · '+(p.active?'Activo':'Bloqueado')+'</p></div><div class="row"><button class="light" data-reset="'+esc(p.id)+'">Nueva contraseña</button><button class="'+(p.active?'warn':'good')+'" data-toggleuser="'+esc(p.id)+'">'+(p.active?'Bloquear':'Activar')+'</button></div></div></div>').join('');
@@ -275,6 +338,8 @@ document.addEventListener('click',async e=>{
  if(b.dataset.toggleuser){await userAction(b.dataset.toggleuser,'active');return}
  }catch(err){error(err)}
 });
+document.addEventListener('click',async e=>{if(e.target.id==='masterPreviewBtn'){try{await previewMasterExcel()}catch(err){masterDraft=null;$('masterApplyBtn').disabled=true;error(err)}}});
+document.addEventListener('change',e=>{if(e.target.id==='masterFile'||e.target.id==='masterMonth'||e.target.id==='masterCutoff'){masterDraft=null;$('masterApplyBtn').disabled=true;$('masterPreview').textContent='Archivo o periodo modificado. Vuelve a validar.'}});
 document.addEventListener('submit',async e=>{
  if(!e.target.id)return;
  e.preventDefault();
@@ -288,6 +353,15 @@ document.addEventListener('submit',async e=>{
   await rpc('cc_close_report',{p_visit:$('reportVisit').value,p_afluencia:$('afluencia').value,p_ingresos:Number($('ingresos').value),p_venta_america:$('venta_america').value,p_venta_competencia:$('venta_competencia').value,p_presupuesto_america:$('presupuesto_america').value,p_presupuesto_competencia:$('presupuesto_competencia').value});closeModal();await refresh();mm('Reporte comercial guardado');return;
  }
  if(e.target.id==='superCloseForm'){await rpc('cc_supervisor_close',{p_day:isoDay(),p_comment:$('superComment').value});mm('Cierre de jornada guardado');await refresh();return}
+ if(e.target.id==='masterImportForm'){
+  if(!masterDraft?.length)throw Error('Primero valida el Excel');
+  if(!['admin','ejecutivo'].includes(profile.role))throw Error('Sin autorización');
+  if(!confirm('¿Aplicar '+masterDraft.length+' registros al mes '+$('masterMonth').value+'? Esta operación actualizará datos existentes.'))return;
+  const result=await rpc('cc_import_master',{p_period:$('masterMonth').value+'-01',p_cutoff:$('masterCutoff').value,p_rows:masterDraft});
+  masterDraft=null;$('masterApplyBtn').disabled=true;
+  $('masterPreview').textContent='Actualización realizada: '+result.updated+' tiendas. Tiendas sin coincidencia: '+(result.missing||[]).join(', ');
+  await refresh();mm('Excel maestro actualizado en Supabase');return;
+ }
  if(e.target.id==='monthlyPlanForm'){
   if(!isManager())throw Error('Perfil no autorizado');
   const user=$('monthlyUser').value,branch=$('monthlyBranch').value,period=$('monthlyMonth').value;
