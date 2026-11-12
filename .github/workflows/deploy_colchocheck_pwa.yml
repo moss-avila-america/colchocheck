@@ -1,0 +1,41 @@
+name: Publicar ColchoCheck PWA
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'pwa/**'
+      - '.github/workflows/deploy_colchocheck_pwa.yml'
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure public Supabase connection
+        env:
+          PUBLIC_SUPABASE_URL: ${{ vars.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_KEY: ${{ vars.PUBLIC_SUPABASE_KEY }}
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const url=process.env.PUBLIC_SUPABASE_URL || '';
+          const publishableKey=process.env.PUBLIC_SUPABASE_KEY || '';
+          fs.writeFileSync('pwa/config.js','window.CC_CONFIG = '+JSON.stringify({url,publishableKey})+';\n');
+          NODE
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: pwa
+      - id: deployment
+        uses: actions/deploy-pages@v4
