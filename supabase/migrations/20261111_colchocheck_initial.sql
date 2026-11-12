@@ -125,10 +125,18 @@ alter table public.cc_supervisor_closings enable row level security;
 alter table public.cc_audit enable row level security;
 
 create policy "profiles scope" on public.cc_profiles for select to authenticated using (public.cc_can_read_user(id));
-create policy "branches for staff" on public.cc_branches for select to authenticated using (public.cc_role() is not null);
+create policy "branches for staff" on public.cc_branches for select to authenticated using (
+ public.cc_role() in ('admin','direccion','gerencia','ejecutivo','supervisor')
+ or exists(select 1 from public.cc_assignments a where a.branch_code=cc_branches.code and a.user_id=auth.uid())
+);
 create policy "branches admin write" on public.cc_branches for all to authenticated
   using (public.cc_role()='admin') with check (public.cc_role()='admin');
-create policy "sales staff read" on public.cc_sales for select to authenticated using (public.cc_role() is not null);
+create policy "sales staff read" on public.cc_sales for select to authenticated using (
+ public.cc_role() in ('admin','ejecutivo','direccion','gerencia','supervisor')
+ or (public.cc_role()='promotor' and exists(
+   select 1 from public.cc_assignments a where a.user_id=auth.uid() and a.branch_code=cc_sales.branch_code
+ ))
+);
 create policy "assignments scope" on public.cc_assignments for select to authenticated using (public.cc_can_read_user(user_id));
 create policy "visits scope" on public.cc_visits for select to authenticated using (public.cc_can_read_user(user_id));
 create policy "breaks scope" on public.cc_breaks for select to authenticated using (
@@ -178,9 +186,16 @@ end $$;
 
 create or replace function public.cc_evidence_ok(p_path text) returns boolean
 language sql stable security definer set search_path=public,storage
-as $$ select p_path like auth.uid()::text || '/%' and exists(
- select 1 from storage.objects o where o.bucket_id='cc-evidence' and o.name=p_path
-) $$;
+as $
+ select p_path like auth.uid()::text || '/%' and exists(
+  select 1 from storage.objects o
+  where o.bucket_id='cc-evidence' and o.name=p_path
+    and o.created_at > now() - interval '10 minutes'
+    and not exists(
+      select 1 from public.cc_visits v where v.in_photo=p_path or v.out_photo=p_path
+    )
+ )
+$;
 
 create or replace function public.cc_checkin(p_assignment uuid,p_photo text,p_lat double precision,p_lng double precision,p_accuracy double precision)
 returns uuid language plpgsql security definer set search_path=public as $$
@@ -245,7 +260,7 @@ end $$;
 create or replace function public.cc_supervisor_close(p_day date,p_comment text)
 returns void language plpgsql security definer set search_path=public as $$
 begin
- if public.cc_role()<>'supervisor' or length(p_comment)>1000 then raise exception 'Operación no autorizada'; end if;
+ if public.cc_role()<>'supervisor' or length(p_comment)>1000 or length(trim(p_comment))<1 then raise exception 'Operación no autorizada'; end if;
  insert into public.cc_supervisor_closings(user_id,day,comment) values(auth.uid(),p_day,p_comment)
  on conflict(user_id,day) do update set comment=excluded.comment,created_at=now();
 end $$;
