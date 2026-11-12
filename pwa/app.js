@@ -184,7 +184,7 @@ function renderWarranties(){
 function renderMasterDirectory(){
  const root=$('masterDirectory');if(!root)return;
  const rows=data.branches.slice().sort((a,b)=>Number(a.code)-Number(b.code));
- root.innerHTML='<p class="muted">'+rows.length+' puntos comerciales · '+rows.filter(b=>b.supervisor_name).length+' con responsable identificado · '+rows.filter(b=>b.channel!=='tienda').length+' especiales'</p>'+
+ root.innerHTML='<p class="muted">'+rows.length+' puntos comerciales · '+rows.filter(b=>b.supervisor_name).length+' con responsable identificado · '+rows.filter(b=>b.channel!=='tienda').length+' especiales</p>'+
  '<div style="max-height:360px;overflow:auto"><table style="width:100%;font-size:13px"><thead><tr><th>Tienda</th><th>Supervisor</th><th>Meta / avance</th></tr></thead><tbody>'+
  rows.map(b=>{const sales=data.sales.filter(x=>x.branch_code===b.code).sort((a,b)=>b.period.localeCompare(a.period))[0];return '<tr><td>#'+esc(b.code)+' '+esc(b.name)+'</td><td>'+esc(b.supervisor_name||'Por asignar')+'</td><td>'+esc(sales?String(sales.actual_pieces)+' / '+String(sales.target_pieces):'Sin datos')+'</td></tr>'}).join('')+'</tbody></table></div>';
 }
@@ -201,15 +201,15 @@ async function previewMasterExcel(){
  const get=n=>window.XLSX.utils.sheet_to_json(wb.Sheets[lookup[n]],{header:1,defval:null,raw:true});
  const dir=get('DIRECTORIOTIENDAS').slice(2),us=get('USER').slice(3),obj=get('OBJETIVOS').slice(5),adv=get('AVANCEMES').slice(6);
  const grouped=new Map(),problems=[];
- const code=v=>v===null||v===undefined||String(v).trim()===''?null:String(v).trim().replace(/\\.0$/,'');
- const put=(c,values)=>{if(!c||!/^\\d+$/.test(c))return;grouped.set(c,{...(grouped.get(c)||{code:c}),...values})};
+ const code=v=>v===null||v===undefined||String(v).trim()===''?null:String(v).trim().replace(/\.0$/,'');
+ const put=(c,values)=>{if(!c||!/^\d+$/.test(c))return;grouped.set(c,{...(grouped.get(c)||{code:c}),...values})};
  const known=new Set(data.branches.map(b=>String(b.code)));
  for(const r of dir){
   const c=code(r[2]);if(!c)continue;
   const supervisor=String(r[6]||'').trim(),supcode=String(r[7]||'').trim();
   put(c,{name:String(r[3]||'').trim(),coverage:String(r[5]||'').trim(),
    supervisor_name:supervisor&&!/^sin cobertura|sin asignar$/i.test(supervisor)?supervisor:null,
-   supervisor_user_code:/^SUPER[12]\\./i.test(supcode)?supcode:null,
+   supervisor_user_code:/^SUPER[12]\./i.test(supcode)?supcode:null,
    status_source:String(r[1]||'').trim(),channel:'tienda'});
  }
  for(const r of obj){
