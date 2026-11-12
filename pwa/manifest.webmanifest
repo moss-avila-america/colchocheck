@@ -6,5 +6,13 @@
   "display": "standalone",
   "background_color": "#f4f6f9",
   "theme_color": "#102238",
-  "description": "Control de asistencia & cobertura"
+  "description": "Control de asistencia & cobertura",
+  "icons": [
+    {
+      "src": "./icon.webp",
+      "sizes": "160x160",
+      "type": "image/webp",
+      "purpose": "any"
+    }
+  ]
 }
