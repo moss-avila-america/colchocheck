@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#102238">
+<meta name="description" content="ColchoCheck: control de asistencia & cobertura">
+<title>ColchoCheck · Colchones América</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<style>
+:root{--navy:#102238;--blue:#296e9e;--bg:#f4f6f9;--line:#e0e7ee;--muted:#66788d;--green:#197b55;--red:#ad404a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;color:#17263a}button,input,select,textarea{font:inherit}button{cursor:pointer;min-height:44px;border:0;border-radius:11px;padding:10px 16px;font-weight:700}button:disabled{opacity:.5;cursor:not-allowed}button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid #76abda;outline-offset:2px}.primary{background:var(--navy);color:white}.good{background:var(--green);color:white}.bad{background:var(--red);color:white}.light{background:#eef3f7;color:#24415e}.warn{background:#fff4df;color:#905c0c}.pill{display:inline-block;border-radius:99px;padding:4px 10px;background:#e8f1fa;color:#235d8c;font-size:12px;font-weight:700}.hidden{display:none!important}.top{background:var(--navy);color:white;padding:15px max(16px,calc((100vw - 1150px)/2));display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.top small{color:#c5d5e3}.brand{display:flex;gap:12px;align-items:center;font-weight:800;font-size:19px}.brandmark{width:44px;height:44px;background:#fff;color:#102238;border-radius:50%;display:grid;place-items:center;font-size:22px}.shell{max-width:1150px;margin:auto;padding:20px 15px 90px}.panel{background:#fff;border:1px solid var(--line);border-radius:18px;padding:21px;margin:14px 0;box-shadow:0 8px 22px #0e263708}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:13px}.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.between{justify-content:space-between}.muted{color:var(--muted)}h1{font-size:26px;margin:0 0 4px}h2{font-size:19px;margin:0 0 12px}h3{font-size:15px;margin:0 0 8px}.field{display:block;width:100%;background:white;border:1px solid #d3dce6;border-radius:10px;padding:11px 12px;margin:6px 0 13px;min-height:44px}label{font-size:13px;font-weight:700;color:#35475a}.tabs{display:flex;gap:7px;flex-wrap:wrap;margin:16px 0}.tabs button{background:white;border:1px solid var(--line);font-size:13px}.tabs button.active{background:var(--navy);color:white}.login{max-width:440px;margin:8vh auto;background:white;border:1px solid var(--line);border-radius:23px;padding:28px;box-shadow:0 15px 45px #15293a12;text-align:center}.login label{text-align:left;display:block}.login input{text-align:left}.login .primary{width:100%}.box{border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0;background:#fbfcfd}.timer{background:var(--navy);color:white;border-radius:15px;text-align:center;padding:19px;margin:16px 0}.timer strong{font-size:36px;font-variant-numeric:tabular-nums}.tablewrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:12px;min-width:650px}th,td{text-align:left;border-bottom:1px solid var(--line);padding:10px}th{background:#f4f7fa}a{color:var(--blue)}.notice{padding:12px;border-radius:10px;background:#edf5fc;color:#285778;margin:12px 0}.error{background:#fff0f1;color:#9d313e}.success{background:#e9f7ee;color:#16653f}.section{display:none}.section.active{display:block}textarea{min-height:90px}.fab{position:fixed;bottom:18px;right:18px;z-index:10;background:#102238;color:white}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions button{min-height:58px}.modal{position:fixed;inset:0;background:#0b2033d9;z-index:30;display:grid;place-items:center;padding:15px}.modalbox{background:white;border-radius:18px;padding:20px;width:min(500px,100%);max-height:90vh;overflow-y:auto}video{width:100%;max-height:320px;background:#17283b;border-radius:12px}small{font-size:12px}@media(max-width:550px){.shell{padding:13px 11px 80px}.panel{padding:17px}.login{margin:15px auto}.brand{font-size:17px}.top{padding:12px}.actions{grid-template-columns:1fr}.timer strong{font-size:32px}}
+</style>
+<script src="./config.js"></script>
+<script type="module" src="./app.js"></script>
+</head>
+<body>
+<header class="top"><div class="brand"><span class="brandmark">✓</span><div>ColchoCheck <div style="font-size:10px;font-weight:600">• COLCHONES AMERICA •</div></div></div><div class="row"><small id="identity">Control de asistencia & cobertura</small><button id="logout" class="light hidden">Salir</button></div></header>
+<main class="shell">
+<div id="setup" class="panel hidden"><h2>Configuración pendiente</h2><p>Esta versión necesita un proyecto Supabase. Copia <code>config.example.js</code> como <code>config.js</code> e introduce solamente la URL y la clave publicable del proyecto. No utilices claves secretas.</p><p class="muted">No se enviará información hasta completar esta configuración.</p></div>
+<div id="login" class="login hidden">
+<div class="brandmark" style="margin:auto;width:68px;height:68px;font-size:32px;background:#102238;color:white">✓</div>
+<h1 style="margin-top:14px">ColchoCheck</h1><p style="color:var(--blue);font-size:12px;font-weight:800">• COLCHONES AMERICA •</p><p class="muted">Control de asistencia & cobertura</p>
+<form id="loginForm"><label>Usuario / ID de colaborador<input class="field" id="usercode" required autocomplete="username" placeholder="Ej. PROMO1.GDL"></label>
+<label>Contraseña<input class="field" id="password" type="password" required autocomplete="current-password" placeholder="••••••••"></label><button class="primary" type="submit">Iniciar sesión</button></form>
+<p class="muted"><small>Acceso exclusivo para personal autorizado.</small></p></div>
+<div id="app" class="hidden">
+<div class="row between"><div><h1 id="greeting">Mi jornada</h1><small id="roleText" class="muted"></small></div><span id="connection" class="pill">Conectando...</span></div>
+<div class="tabs" id="tabs">
+<button data-tab="home" class="active">Inicio</button>
+<button data-tab="agenda">Agenda</button>
+<button data-tab="history">Historial</button>
+<button data-tab="management" class="leaders">Gestión</button>
+<button data-tab="users" class="admins">Usuarios</button>
+</div>
+<section class="section active" id="tab-home"><div id="homeContent"></div></section>
+<section class="section" id="tab-agenda"><div class="panel"><h2>Mi programación</h2><div id="agendaContent"></div></div></section>
+<section class="section" id="tab-history"><div class="panel"><div class="row between"><h2>Registros de visitas</h2><button class="light downloaders" id="exportBtn">Exportar Excel (CSV)</button></div><div id="historyContent"></div></div></section>
+<section class="section" id="tab-management"><div class="grid">
+<div class="panel"><h2>Programar visita</h2><form id="planForm">
+<label>Colaborador<select class="field" id="planUser" required></select></label>
+<label>Sucursal<select class="field" id="planBranch" required></select></label>
+<label>Fecha<input class="field" id="planDate" type="date" required></label>
+<button class="primary" type="submit">Asignar sucursal</button></form></div>
+<div class="panel" id="salesPanel"><h2>Actualizar meta y avance</h2>
+<form id="salesForm"><label>Sucursal<select class="field" id="salesBranch" required></select></label>
+<label>Mes<input class="field" type="month" id="salesMonth" required></label>
+<label>Meta (piezas)<input class="field" type="number" min="0" id="salesTarget" required></label>
+<label>Avance (piezas)<input class="field" type="number" min="0" id="salesActual" required></label>
+<button class="primary" type="submit">Guardar cifras</button></form></div>
+<div class="panel admins" id="branchPanel"><h2>Nueva sucursal</h2><form id="branchForm">
+<label>Número de tienda<input class="field" id="branchCode" required></label>
+<label>Nombre<input class="field" id="branchName" required></label>
+<label>Ciudad<input class="field" id="branchCity" required></label>
+<button class="primary" type="submit">Guardar sucursal</button></form></div>
+</div><div class="panel"><h2>Monitoreo y autorizaciones</h2><div id="manageContent"></div></div></section>
+<section class="section" id="tab-users"><div class="panel"><h2>Administración de usuarios</h2>
+<p class="muted">Solo el administrador crea y bloquea usuarios o restablece contraseñas. Las contraseñas existentes nunca son visibles.</p>
+<form id="createUserForm" class="grid"><label>ID de usuario<input class="field" id="newUserId" placeholder="PROMO3.GDL" required></label>
+<label>Nombre completo<input class="field" id="newUserName" required></label>
+<label>Perfil<select class="field" id="newUserRole"><option value="promotor">Promotor</option><option value="supervisor">Supervisor</option><option value="ejecutivo">Ejecutivo</option><option value="gerencia">Gerencia</option><option value="direccion">Dirección</option><option value="admin">Administrador</option></select></label>
+<label>Supervisor<select class="field" id="newUserSupervisor"></select></label>
+<label>Contraseña inicial<input class="field" id="newUserPass" type="text" minlength="10" required placeholder="Mínimo 10 caracteres"></label>
+<div><button class="primary" type="submit">Crear usuario</button></div></form>
+<div id="usersList"></div></div></section></div>
+</main>
+<div id="modalRoot"></div><div id="message" role="status" class="notice hidden" style="position:fixed;bottom:16px;left:16px;right:16px;z-index:90;max-width:620px;margin:auto"></div>
+</body></html>
