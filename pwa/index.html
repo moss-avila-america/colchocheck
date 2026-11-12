@@ -64,6 +64,23 @@
 <label>Sucursal<select class="field" id="planBranch" required></select></label>
 <label>Fecha<input class="field" id="planDate" type="date" required></label>
 <button class="primary" type="submit">Asignar sucursal</button></form></div>
+<div class="panel"><h2>Rol mensual de promotores</h2>
+<p class="muted">Programa una sucursal fija en los días seleccionados del mes. Los días ya programados para la misma persona y sucursal se omiten. Los cambios de punto se realizan cancelando y reprogramando.</p>
+<form id="monthlyPlanForm">
+<label>Promotor<select class="field" id="monthlyUser" required></select></label>
+<label>Sucursal<select class="field" id="monthlyBranch" required></select></label>
+<label>Mes<input class="field" id="monthlyMonth" type="month" required></label>
+<div class="row" style="margin:8px 0 15px">
+<label><input type="checkbox" name="monthlyDay" value="1" checked> Lun</label>
+<label><input type="checkbox" name="monthlyDay" value="2" checked> Mar</label>
+<label><input type="checkbox" name="monthlyDay" value="3" checked> Mié</label>
+<label><input type="checkbox" name="monthlyDay" value="4" checked> Jue</label>
+<label><input type="checkbox" name="monthlyDay" value="5" checked> Vie</label>
+<label><input type="checkbox" name="monthlyDay" value="6" checked> Sáb</label>
+<label><input type="checkbox" name="monthlyDay" value="0"> Dom</label>
+</div>
+<button class="primary" type="submit" id="monthlySubmit">Crear rol mensual</button>
+</form><p id="monthlyResult" class="muted" role="status"></p></div>
 <div class="panel" id="salesPanel"><h2>Actualizar meta y avance</h2>
 <form id="salesForm"><label>Sucursal<select class="field" id="salesBranch" required></select></label>
 <label>Mes<input class="field" type="month" id="salesMonth" required></label>
