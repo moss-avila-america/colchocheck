@@ -325,3 +325,7 @@ using(bucket_id='cc-evidence' and (
 -- realtime: la interfaz también refresca cada 30 segundos.
 alter publication supabase_realtime add table public.cc_visits;
 alter publication supabase_realtime add table public.cc_assignments;
+
+-- Reduce default function exposure; RLS remains mandatory for all exposed data.
+revoke all on function public.cc_role(), public.cc_can_read_user(uuid), public.cc_can_plan_user(uuid) from public,anon;
+grant execute on function public.cc_role(), public.cc_can_read_user(uuid), public.cc_can_plan_user(uuid) to authenticated;
