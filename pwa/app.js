@@ -94,7 +94,7 @@ function supervisorPortfolio(){
  const owned=new Set(mine.map(b=>b.code));
  const visited=new Set(data.visits.filter(v=>v.user_id===me.id&&owned.has(v.branch_code)&&v.in_at?.slice(0,7)===current).map(v=>v.branch_code));
  const rows=mine.map(b=>({b,sale:data.sales.find(x=>x.branch_code===b.code&&x.period?.slice(0,7)===current),local:/GDL|Zapopan|Guadalajara|Tlaquepaque|Tonalá|Tlajomulco/i.test([b.city,b.region].join(' ')),done:visited.has(b.code)}));
- const target=rows.reduce((n,r)=>n+Number(r.sale?.target_pieces||0),0),actual=rows.reduce((n,r)=>n+Number(r.sale?.actual_pieces||0),0);
+ const target=rows.reduce((n,r)=>n+Number(r.sale?.target_pieces_exact??r.sale?.target_pieces??0),0),actual=rows.reduce((n,r)=>n+Number(r.sale?.actual_pieces||0),0);
  const daily=data.assignments.filter(a=>a.user_id===me.id&&a.day===isoDay()&&a.status!=='cancelled').length;
  return '<div class="panel"><h2>Mi cobertura mensual · '+esc(current)+'</h2><div class="grid">'+
  '<div class="box"><strong>'+rows.filter(r=>r.done).length+' / '+rows.length+'</strong><p class="muted">Visitadas / asignadas</p></div>'+
@@ -187,7 +187,7 @@ function renderMasterDirectory(){
  const rows=data.branches.slice().sort((a,b)=>Number(a.code)-Number(b.code));
  root.innerHTML='<p class="muted">'+rows.length+' puntos comerciales · '+rows.filter(b=>b.supervisor_name).length+' con responsable identificado · '+rows.filter(b=>b.channel!=='tienda').length+' especiales</p>'+
  '<div style="max-height:360px;overflow:auto"><table style="width:100%;font-size:13px"><thead><tr><th>Tienda</th><th>Supervisor</th><th>Meta / avance</th></tr></thead><tbody>'+
- rows.map(b=>{const sales=data.sales.filter(x=>x.branch_code===b.code).sort((a,b)=>b.period.localeCompare(a.period))[0];return '<tr><td>#'+esc(b.code)+' '+esc(b.name)+'</td><td>'+esc(b.supervisor_name||'Sin asignación')+(b.channel!=='tienda'?' · '+esc(b.channel):'')+'</td><td>'+esc(sales?String(sales.actual_pieces)+' / '+String(sales.target_pieces):'Sin datos')+'</td></tr>'}).join('')+'</tbody></table></div>';
+ rows.map(b=>{const sales=data.sales.filter(x=>x.branch_code===b.code).sort((a,b)=>b.period.localeCompare(a.period))[0];return '<tr><td>#'+esc(b.code)+' '+esc(b.name)+'</td><td>'+esc(b.supervisor_name||'Sin asignación')+(b.channel!=='tienda'?' · '+esc(b.channel):'')+'</td><td>'+esc(sales?String(sales.actual_pieces)+' / '+String(sales.target_pieces_exact??sales.target_pieces):'Sin datos')+'</td></tr>'}).join('')+'</tbody></table></div>';
 }
 function masterHeader(s){return String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'')}
 function masterNum(v){if(v===null||v===undefined||v==='')return null;const n=Number(String(v).replace(/[$,\s]/g,''));return Number.isFinite(n)&&n>=0?n:null}
@@ -217,7 +217,7 @@ async function previewMasterExcel(){
   const c=code(r[0]);if(!c)continue;
   const target=masterNum(r[2]),amount=masterNum(r[3]);
   const special=!known.has(c)&&!grouped.has(c);
-  put(c,{name:String(r[1]||'').trim(),...(target!==null?{target_pieces:Math.round(target)}:{}),
+  put(c,{name:String(r[1]||'').trim(),...(target!==null?{target_pieces:Math.round(target),target_pieces_exact:target}:{}),
    ...(amount!==null&&amount<=1000000?{target_amount:amount}:{}),...(special?{channel:'especial',active:false,supervisor_name:null,supervisor_user_code:null}:{})});
   if(amount!==null&&amount>1000000)problems.push('Importe atípico omitido en tienda '+c+': $'+amount.toLocaleString('es-MX'));
  }
@@ -381,6 +381,8 @@ document.addEventListener('submit',async e=>{
   if(!['admin','ejecutivo'].includes(profile.role))throw Error('Sin autorización');
   if(!confirm('¿Aplicar '+masterDraft.length+' registros al mes '+$('masterMonth').value+'? Esta operación actualizará datos existentes.'))return;
   const result=await rpc('cc_import_master',{p_period:$('masterMonth').value+'-01',p_cutoff:$('masterCutoff').value,p_rows:masterDraft});
+  const exact=masterDraft.filter(r=>r.target_pieces_exact!==undefined&&r.target_amount!==undefined).map(r=>({code:r.code,target_pieces_exact:r.target_pieces_exact,target_amount:r.target_amount}));
+  if(exact.length)await rpc('cc_import_objectives_exact',{p_period:$('masterMonth').value+'-01',p_rows:exact});
   if(profile.role==='admin'&&masterUsersDraft.length)await rpc('cc_import_users',{p_rows:masterUsersDraft});
   masterDraft=null;masterUsersDraft=[];$('masterApplyBtn').disabled=true;
   $('masterPreview').textContent='Actualización realizada: '+result.updated+' tiendas. Tiendas sin coincidencia: '+(result.missing||[]).join(', ');
