@@ -60,7 +60,7 @@ async function initUser(authUser){
  document.querySelector('[data-tab="warranties"]').classList.toggle('hidden',!['admin','supervisor'].includes(profile.role));
  $('salesPanel').classList.toggle('hidden',!['admin','ejecutivo'].includes(profile.role));
  $('masterImportPanel').classList.toggle('hidden',!['admin','ejecutivo'].includes(profile.role));
- $('masterMonth').value=month();$('masterCutoff').value=isoDay();
+ if($('masterMonth'))$('masterMonth').value=month();if($('masterCutoff'))$('masterCutoff').value=isoDay();
  $('planDate').value=isoDay();$('salesMonth').value=month();$('monthlyMonth').value=month();view('home');
  await refresh();
  clearInterval(poll);poll=setInterval(()=>{if(me)refresh(true)},30000);
@@ -70,9 +70,10 @@ async function initUser(authUser){
 async function refresh(quiet=false){
  if(!sb||!profile)return;
  try {
- const names=['cc_profiles','cc_branches','cc_sales','cc_assignments','cc_visits','cc_breaks','cc_reports','cc_supervisor_closings','cc_warranties','cc_models','cc_user_imports'];
- const results=await Promise.all(names.map(t=>sb.from(t).select('*').limit(1500)));
- for(let i=0;i<results.length;i++){if(results[i].error)throw results[i].error;data[['profiles','branches','sales','assignments','visits','breaks','reports','closings','warranties','models','user_imports'][i]]=results[i].data||[]}
+ const required=[['cc_branches','branches'],['cc_sales','sales'],['cc_assignments','assignments'],['cc_visits','visits']];
+ const optional=[['cc_profiles','profiles'],['cc_breaks','breaks'],['cc_reports','reports'],['cc_supervisor_closings','closings'],['cc_warranties','warranties'],['cc_models','models'],['cc_user_imports','user_imports']];
+ const results=await Promise.all([...required,...optional].map(async ([table,key])=>({table,key,...await sb.from(table).select('*').limit(1500)})));
+ for(const r of results){if(r.error){if(required.some(([table])=>table===r.table))throw new Error('No se pudo cargar '+r.table+': '+r.error.message);console.warn('Módulo opcional no disponible',r.table,r.error.message);data[r.key]=[];continue}data[r.key]=r.data||[]}
  $('connection').textContent='En línea · '+new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
  $('connection').style.background='#e9f8f0';
  render();
