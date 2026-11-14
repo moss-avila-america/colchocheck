@@ -46,10 +46,16 @@ async function boot(){
 }
 async function initUser(authUser){
  me=authUser;
- const r=await sb.from('cc_profiles').select('*').eq('id',me.id).single();
- if(r.error){throw new Error('No se pudo verificar tu perfil. Revisa tu conexión e inténtalo nuevamente.')}
- if(!r.data?.active){await sb.auth.signOut();loginDisplay();mm('Cuenta no habilitada. Contacta al administrador.',true);return}
- profile=r.data;
+ const r=await sb.from('cc_profiles').select('*').eq('id',me.id).maybeSingle();
+ let verified=r.data;
+ if(r.error||!verified){
+  const fallback=await sb.rpc('cc_my_profile');
+  if(fallback.error)throw new Error('No se pudo verificar el perfil: '+fallback.error.message);
+  verified=fallback.data;
+ }
+ if(!verified)throw new Error('La sesión no tiene un perfil vinculado. Solicita al administrador revisar el ID de autenticación.');
+ if(verified.active!==true){await sb.auth.signOut();loginDisplay();mm('El perfil está desactivado en Supabase. Contacta al administrador.',true);return}
+ profile=verified;
  $('login').classList.add('hidden');$('setup').classList.add('hidden');$('app').classList.remove('hidden');$('logout').classList.remove('hidden');window.CC_BOOT_READY?.();
  $('greeting').textContent='Hola, '+profile.full_name.split(' ')[0];
  $('roleText').textContent=profile.full_name+' · '+roleName(profile.role);
