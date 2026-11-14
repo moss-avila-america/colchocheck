@@ -44,15 +44,35 @@ async function boot(){
  if(session)await initUser(session.user);else loginDisplay();
  sb.auth.onAuthStateChange((ev,session)=>{if(ev==='SIGNED_OUT'){me=null;profile=null;clearInterval(poll);poll=null;loginDisplay()}});
 }
+const transientPostgrestError=e=>/^(PGRST002|PGRST003)$/.test(String(e?.code||''))||/schema cache|connection pool|timed out acquiring connection/i.test(String(e?.message||''));
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function loadVerifiedProfile(userId){
+ const delays=[0,1200,2500];
+ for(let attempt=0;attempt<delays.length;attempt++){
+  if(delays[attempt])await sleep(delays[attempt]);
+  const r=await sb.from('cc_profiles').select('*').eq('id',userId).maybeSingle();
+  if(r.error){
+   if(transientPostgrestError(r.error)){
+    if(attempt<delays.length-1)continue;
+    throw new Error('Supabase no responde temporalmente ('+(r.error.code||'PGRST002/PGRST003')+'). La sesión no se ha eliminado. Reintenta más tarde. Detalle: '+r.error.message);
+   }
+   // Compatibility fallback for non-transient profile lookup failures only.
+   const fallback=await sb.rpc('cc_my_profile');
+   if(fallback.error)throw new Error('No se pudo verificar el perfil ('+(fallback.error.code||r.error.code||'sin código')+'): '+fallback.error.message);
+   return fallback.data;
+  }
+  if(r.data)return r.data;
+  const fallback=await sb.rpc('cc_my_profile');
+  if(fallback.error){
+   if(transientPostgrestError(fallback.error))throw new Error('Supabase no responde temporalmente ('+(fallback.error.code||'PGRST002/PGRST003')+'). La sesión sigue disponible.');
+   throw new Error('No se pudo verificar el perfil ('+(fallback.error.code||'sin código')+'): '+fallback.error.message);
+  }
+  return fallback.data;
+ }
+}
 async function initUser(authUser){
  me=authUser;
- const r=await sb.from('cc_profiles').select('*').eq('id',me.id).maybeSingle();
- let verified=r.data;
- if(r.error||!verified){
-  const fallback=await sb.rpc('cc_my_profile');
-  if(fallback.error)throw new Error('No se pudo verificar el perfil: '+fallback.error.message);
-  verified=fallback.data;
- }
+ const verified=await loadVerifiedProfile(me.id);
  if(!verified)throw new Error('La sesión no tiene un perfil vinculado. Solicita al administrador revisar el ID de autenticación.');
  if(verified.active!==true){await sb.auth.signOut();loginDisplay();mm('El perfil está desactivado en Supabase. Contacta al administrador.',true);return}
  profile=verified;
@@ -78,7 +98,13 @@ async function refresh(quiet=false){
  try {
  const required=[['cc_branches','branches'],['cc_sales','sales'],['cc_assignments','assignments'],['cc_visits','visits']];
  const optional=[['cc_profiles','profiles'],['cc_breaks','breaks'],['cc_reports','reports'],['cc_supervisor_closings','closings'],['cc_warranties','warranties'],['cc_models','models'],['cc_user_imports','user_imports']];
- const results=await Promise.all([...required,...optional].map(async ([table,key])=>({table,key,...await sb.from(table).select('*').limit(1500)})));
+ const tables=[...required,...optional],results=[];
+ // Avoid eleven simultaneous API requests during recovery from a connection-pool outage.
+ for(let i=0;i<tables.length;i+=3){
+  const batch=await Promise.all(tables.slice(i,i+3).map(async ([table,key])=>({table,key,...await sb.from(table).select('*').limit(1500)})));
+  results.push(...batch);
+  if(batch.some(r=>r.error&&transientPostgrestError(r.error)))break;
+ }
  for(const r of results){if(r.error){if(required.some(([table])=>table===r.table))throw new Error('No se pudo cargar '+r.table+': '+r.error.message);console.warn('Módulo opcional no disponible',r.table,r.error.message);data[r.key]=[];continue}data[r.key]=r.data||[]}
  $('connection').textContent='En línea · '+new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
  $('connection').style.background='#e9f8f0';
