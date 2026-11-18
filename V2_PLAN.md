@@ -1,6 +1,6 @@
 # ColchoCheck V2 | Plan de reconstrucción segura
 
-**Estado:** Preparación. No se han creado nuevos servicios ni migrado datos.
+**Estado:** Proyecto Supabase V2 creado y SQL validado; no se han migrado datos ni conectado la aplicación.
 **Objetivo:** Una aplicación nueva, sencilla para promotores y supervisores, sin tocar la versión original hasta aprobar pruebas.
 
 ## Principios
@@ -49,3 +49,15 @@ Crear un proyecto nuevo no garantiza que el problema no reaparezca: validar prim
 - Organización de Supabase donde crear V2 (la existente se llama `ColchoCheck`).
 - Aprobar cualquier costo no nulo que la plataforma cotice.
 - Momento de migración y publicación, después de las pruebas.
+
+## Infraestructura V2 creada (2026-11-18)
+- Organización: `ColchoCheck` (plan Free).
+- Proyecto nuevo: `ColchoCheck V2`.
+- Ref de Supabase V2: `hftqkghnloqsmuioiquq`.
+- Región: `us-west-1`.
+- Cotización recibida antes de crear: **USD $0/mes**.
+- Estado confirmado: `ACTIVE_HEALTHY`.
+- PostgreSQL: `17.12`, consulta SQL de solo lectura exitosa.
+- Health advisors: sin alertas en el momento de la comprobación.
+- Proyecto anterior `sphvdggfbbsdfvaaelnx`: conservado y activo.
+- Pendiente: probar de extremo a extremo REST y Auth con credenciales de prueba y preparar esquema/RLS. Aún no se ha migrado ningún dato ni conectado la app V2 a producción.
