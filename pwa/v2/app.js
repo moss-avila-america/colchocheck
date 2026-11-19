@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.10';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.95.0';
 import { URL, PUBLISHABLE_KEY } from './config.js';
 function clientApp(createClient,URL,PUBLISHABLE_KEY){
 "use strict";
