@@ -61,3 +61,23 @@ Crear un proyecto nuevo no garantiza que el problema no reaparezca: validar prim
 - Health advisors: sin alertas en el momento de la comprobación.
 - Proyecto anterior `sphvdggfbbsdfvaaelnx`: conservado y activo.
 - Pendiente: probar de extremo a extremo REST y Auth con credenciales de prueba y preparar esquema/RLS. Aún no se ha migrado ningún dato ni conectado la app V2 a producción.
+
+
+## Entrega técnica V2: GPS + domicilio + mapa (2026-11-18)
+- Aplicación independiente publicada como archivos nuevos en GitHub Pages: `pwa/v2/` (sin sustituir `pwa/index.html`).
+- Archivos: `pwa/v2/index.html`, `app.js`, `config.js`, `manifest.webmanifest`.
+- Acceso de usuarios nuevos por email y contraseña, con creación automática de perfil promotor y asignación exclusiva a `DEMO-V2`.
+- Consultas con RLS; check-in y check-out con hora oficial de Postgres y bloqueo de modificación de entradas/cierres.
+- Selfie transformada a JPEG con sello de fecha, coordenadas, precisión y domicilio aproximado.
+- Geolocalización GPS con precisión máxima admitida ±300 m.
+- Domicilio estimado mediante consulta puntual Nominatim/OpenStreetMap (con consentimiento informado); mapa reducido OSM e historial.
+- Evidencias privadas en bucket `ccv2-evidence`, políticas que impiden ver archivos de otros promotores.
+- Directorio anterior de 125 sucursales copiado únicamente con código/nombre/ciudad/estado activo; 1 sucursal ficticia separada. Los usuarios nuevos solo ven la sucursal demo.
+- Validación: Supabase PostgREST conectó a PostgreSQL y cargó cuatro relaciones, advisors sin avisos, 126 sucursales, seis políticas de tablas y dos de almacenamiento.
+- Validación de código: sintaxis JS, render de inicio de sesión, render de dashboard, render de GPS→domicilio→mini mapa con proveedores simulados.
+- No hay aún usuarios creados en Auth V2, por lo que el inicio de sesión, la cámara real y una visita completa **no han podido validarse de extremo a extremo en dispositivo**.
+- Antes del piloto de registro por correo, ajustar `Authentication > URL Configuration` Site URL y Redirect URLs a `https://moss-avila-america.github.io/colchocheck/v2/`. No existe herramienta de configuración de Auth URL disponible en la conexión actual.
+- Pendientes: alta de primera cuenta verificada, asignación de administrador, pruebas reales iOS/Android, agenda, objetivos, ventas, garantías, exportación Excel y resguardo adicional contra registro público no autorizado.
+- Servicio de geocodificación público Nominatim tiene límite de 1 req/s global y condiciones de uso; únicamente apropiado para piloto pequeño. Adoptar proveedor con cuota garantizada para el despliegue masivo.
+
+**Notas de seguridad:** nunca compartir claves secretas; las URLs y publishable keys del cliente son públicas por diseño; la autorización depende de RLS. Evitar subir fotos reales en cuentas ficticias o compartir enlaces firmados.
