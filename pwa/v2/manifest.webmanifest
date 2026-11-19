@@ -1,0 +1,19 @@
+{
+  "id": "/colchocheck/v2/",
+  "name": "ColchoCheck V2",
+  "short_name": "ColchoCheck V2",
+  "description": "Control de asistencia, domicilios GPS y evidencias.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f5f7",
+  "theme_color": "#111923",
+  "icons": [
+    {
+      "src": "../icon.webp",
+      "sizes": "160x160",
+      "type": "image/webp",
+      "purpose": "any"
+    }
+  ]
+}
