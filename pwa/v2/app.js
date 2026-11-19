@@ -127,7 +127,7 @@ async function getLocation(){
 async function compressPhoto(file,geo){
  if(!file||!file.type.startsWith("image/"))throw Error("Selecciona una fotografía válida.");
  if(file.size>15*1024*1024)throw Error("La imagen es demasiado grande.");
- const src=URL.createObjectURL(file);const img=new Image();
+ const src=window.URL.createObjectURL(file);const img=new Image();
  try{
   await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(Error("No fue posible abrir la imagen"));img.src=src});
   const scale=Math.min(1,1280/Math.max(img.naturalWidth,img.naturalHeight));const w=Math.max(1,Math.round(img.naturalWidth*scale)),h=Math.max(1,Math.round(img.naturalHeight*scale));
@@ -140,7 +140,7 @@ async function compressPhoto(file,geo){
   const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error("No fue posible preparar la selfie")),"image/jpeg",.79));
   if(blob.size>5*1024*1024)throw Error("La fotografía supera el límite del almacenamiento.");
   return blob;
- }finally{URL.revokeObjectURL(src)}
+ }finally{window.URL.revokeObjectURL(src)}
 }
 async function upload(visitId,side){
  if(!state.geo||!state.photo)throw Error("Necesitas GPS y fotografía antes de continuar.");
